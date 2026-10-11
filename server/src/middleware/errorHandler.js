@@ -26,7 +26,7 @@ export function errorHandler(err, req, res, _next) {
   }
 
   const body = { success: false, error: { code, message } };
-  // Stack traces only in development, never in production
+   if (err.details) body.error.details = err.details;
   if (process.env.NODE_ENV === 'development' && statusCode >= 500) {
     body.error.stack = err.stack;
   }

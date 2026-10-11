@@ -1,21 +1,20 @@
 import 'dotenv/config';
 import http from 'node:http';
+import { env } from './config/env.js';
 import { createApp } from './app.js';
 import { connectDB, disconnectDB } from './config/db.js';
 import { initSocket } from './sockets/index.js';
 import { logger } from './utils/logger.js';
 
-const PORT = process.env.PORT || 5000;
-
 async function start() {
-  await connectDB(process.env.MONGO_URI);
+  await connectDB(env.MONGO_URI);
 
   const app = createApp();
   const httpServer = http.createServer(app);
   const io = initSocket(httpServer);
 
-  httpServer.listen(PORT, () => {
-    logger.info(`Server listening on port ${PORT}`);
+  httpServer.listen(env.PORT, () => {
+    logger.info(`Server listening on port ${env.PORT}`);
   });
 
   const shutdown = async (signal) => {
