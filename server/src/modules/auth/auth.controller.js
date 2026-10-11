@@ -14,7 +14,7 @@ function setAuthCookies(res, { accessToken, refreshToken }) {
   res.cookie('refresh_token', refreshToken, refreshCookie);
 }
 
-function clearAuthCookies(res) {
+export function clearAuthCookies(res) {
   res.clearCookie('access_token', { ...base, path: '/' });
   res.clearCookie('refresh_token', { ...base, path: '/api/auth' });
 }

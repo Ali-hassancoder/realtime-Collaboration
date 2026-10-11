@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { env } from '../../config/env.js';
 import { AppError } from '../../utils/AppError.js';
-import { User } from '../users/user.model.js';
+import { User } from '../users/users.model.js';
 import { Session } from './session.model.js';
 
 const BCRYPT_COST = 12;
@@ -80,3 +80,8 @@ export async function logout(rawToken) {
   if (!rawToken) return;
   await Session.deleteOne({ tokenHash: hashToken(rawToken) });
 }
+
+export const hashPassword = (password) => bcrypt.hash(password, BCRYPT_COST);
+export const verifyPassword = (password, hash) => bcrypt.compare(password, hash);
+export const revokeAllSessions = (userId) => Session.deleteMany({ userId });
+export { hashToken };
