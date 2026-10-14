@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMembers, useUpdateMemberRole, useRemoveMember } from './hooks';
-import { canManageMembers, outranks, ROLE_LABELS } from '../../lib/permissions';
+import { ASSIGNABLE_ROLES, canManageMembers, outranks, ROLE_LABELS } from '../../lib/permissions';
 import FullPageSpinner from '../../components/FullPageSpinner';
 
 export default function MemberList({ workspaceId, myRole, myUserId }) {
@@ -8,6 +8,7 @@ export default function MemberList({ workspaceId, myRole, myUserId }) {
   const updateRole = useUpdateMemberRole();
   const remove = useRemoveMember();
   const [actionError, setActionError] = useState(null);
+  const assignable = ['admin', 'member', 'guest'].filter((r) => outranks(myRole, r));
 
   const run = async (mutation, vars) => {
     setActionError(null);

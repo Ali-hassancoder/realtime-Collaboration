@@ -1,7 +1,9 @@
 import mongoose from 'mongoose';
 import { jsonTransform } from '../../utils/mongoose.js';
+import { ROLES } from './workspace.permissions.js';
 
-export const ROLES = ['owner', 'admin', 'member', 'guest'];
+// Re-exported so existing imports keep working; the list lives in workspace.permissions.js
+export { ROLES };
 
 const memberSchema = new mongoose.Schema(
   {

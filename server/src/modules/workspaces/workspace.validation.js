@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ASSIGNABLE_ROLES } from './workspace.permissions.js';
 
 const objectId = z.string().regex(/^[a-f\d]{24}$/i, 'Invalid id');
 
@@ -19,11 +20,11 @@ export const memberParams = z.object({ userId: objectId });
 export const inviteParams = z.object({ inviteId: objectId });
 
 // 'owner' is deliberately not assignable
-export const updateRoleSchema = z.object({ role: z.enum(['admin', 'member', 'guest']) });
+export const updateRoleSchema = z.object({ role: z.enum(ASSIGNABLE_ROLES) });
 
 export const inviteSchema = z.object({
   email: z.string().trim().toLowerCase().email('Enter a valid email address').max(254),
-  role: z.enum(['admin', 'member', 'guest']).default('member'),
+  role: z.enum(ASSIGNABLE_ROLES).default('member'),
 });
 
 export const acceptInviteSchema = z.object({ token: z.string().min(20).max(200) });

@@ -1,11 +1,12 @@
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../features/auth/useAuth';
 import { useWorkspace } from '../features/workspaces/hooks';
+import ProjectList from '../features/projects/ProjectList';
 import MemberList from '../features/workspaces/MemberList';
 import InviteSection from '../features/workspaces/InviteSection';
 import WorkspaceSettings from '../features/workspaces/WorkspaceSettings';
 import FullPageSpinner from '../components/FullPageSpinner';
-import { canManageMembers, ROLE_LABELS } from '../lib/permissions';
+import { hasPermission, ROLE_LABELS } from '../lib/permissions';
 
 export default function WorkspacePage() {
   const { workspaceId } = useParams();
@@ -33,11 +34,9 @@ export default function WorkspacePage() {
           Your role: {ROLE_LABELS[workspace.role]}
         </span>
       </div>
-      <p className="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500">
-        Projects will appear here in Phase 5.
-      </p>
+      <ProjectList workspace={workspace} />
       <MemberList workspaceId={workspace.id} myRole={workspace.role} myUserId={user.id} />
-      {canManageMembers(workspace.role) && <InviteSection workspaceId={workspace.id} myRole={workspace.role} />}
+      {hasPermission(workspace, 'member:invite') && <InviteSection workspaceId={workspace.id} myRole={workspace.role} />}
       <WorkspaceSettings key={workspace.updatedAt} workspace={workspace} myUserId={user.id} />
     </div>
   );

@@ -4,11 +4,10 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import FormField from '../../components/FormField';
 import { useInvites, useCreateInvite, useDeleteInvite } from './hooks';
-import { outranks, ROLE_LABELS } from '../../lib/permissions';
-
+import { ASSIGNABLE_ROLES, outranks, ROLE_LABELS } from '../../lib/permissions';
 const schema = z.object({
   email: z.string().trim().email('Enter a valid email address'),
-  role: z.enum(['admin', 'member', 'guest']),
+    role: z.enum(ASSIGNABLE_ROLES),
 });
 
 export default function InviteSection({ workspaceId, myRole }) {
@@ -19,7 +18,7 @@ export default function InviteSection({ workspaceId, myRole }) {
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState(false);
 
-  const roles = ['admin', 'member', 'guest'].filter((r) => outranks(myRole, r));
+  const roles = ASSIGNABLE_ROLES.filter((r) => outranks(myRole, r));
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
     resolver: zodResolver(schema),
     defaultValues: { role: 'member' },

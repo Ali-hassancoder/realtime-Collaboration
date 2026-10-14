@@ -6,12 +6,15 @@ import { User } from '../users/users.model.js';
 import { Workspace } from './workspace.model.js';
 import { WorkspaceMember } from './workspaceMember.model.js';
 import { WorkspaceInvite } from './workspaceInvite.model.js';
-import { can, outranks } from './workspace.permissions.js';
+import { Project } from '../projects/project.model.js';
+import { ProjectMember } from '../projects/projectMember.model.js';
+import { Task } from '../task/task.model.js';
+import { unassignUser } from '../task/task.cleanup.js';import { can, outranks, permissionsFor } from './workspace.permissions.js';
 
 const INVITE_DAYS = 7;
 const forbidden = (msg = 'You do not have permission to do this.') => new AppError(403, 'FORBIDDEN', msg);
 
-const withRole = (workspace, role) => ({ ...workspace.toJSON(), role });
+const withRole = (workspace, role) => ({ ...workspace.toJSON(), role, permissions: permissionsFor(role) });
 
 // ---------- Workspaces ----------
 

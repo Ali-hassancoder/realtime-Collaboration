@@ -3,6 +3,7 @@ import { authenticate } from '../../middleware/authenticate.js';
 import { validate } from '../../middleware/validate.js';
 import { inviteLimiter } from '../../middleware/rateLimit.js';
 import { loadMembership, requirePermission } from './workspace.middleware.js';
+import projectRoutes from '../projects/project.routes.js';
 import * as v from './workspace.validation.js';
 import * as c from './workspace.controller.js';
 
@@ -23,5 +24,8 @@ router.delete('/:workspaceId/members/:userId', loadMembership, validate({ params
 router.get('/:workspaceId/invites', loadMembership, requirePermission('member:invite'), c.listInvites);
 router.post('/:workspaceId/invites', inviteLimiter, loadMembership, requirePermission('member:invite'), validate({ body: v.inviteSchema }), c.createInvite);
 router.delete('/:workspaceId/invites/:inviteId', loadMembership, requirePermission('member:invite'), validate({ params: v.inviteParams }), c.deleteInvite);
+
+// Projects: membership is resolved first, so every project route knows the caller's role
+router.use('/:workspaceId/projects', loadMembership, projectRoutes);
 
 export default router;

@@ -23,3 +23,29 @@
   factor, not proof of mailbox ownership. The token is the real secret. Email verification is planned.
 - Known limitation: invite tokens appear in the client URL path; share links over private channels.
 - Password change revokes all refresh sessions. A stolen access token can still work for up to 15 minutes.
+
+## Permissions (Phase 4)
+- One permission module is the authority for REST and (later) Socket.IO. Unknown roles/actions are denied.
+- Permission lookups use Object.hasOwn, so inputs like "__proto__" cannot match.
+- Roles are always resolved from the database membership, never from the request.
+- Project/task/comment/message actions are defined but not enforced until those features exist.
+- Guest project scoping (isProjectScoped) is a hook only; it must be enforced when projects are built.
+- Permissions are static per role. Per-workspace custom roles are out of scope.
+
+## Projects (Phase 5)
+- loadProject resolves the project by id AND the caller's workspace; cross-workspace access is structurally impossible.
+- Guest scoping is enforced in the list query and in loadProject; all failures are 404.
+- Only existing workspace members can be added to a project team.
+- Removing someone from a workspace removes their project memberships, so re-adding them later does not
+  silently restore guest access.
+- Role downgrade to guest does not add project memberships; the guest simply loses visibility.
+- Limits: list size capped (limit <= 100); a guest's visible-project lookup is capped at 1000.
+
+## Tasks (Phase 6)
+- Task routes sit behind loadProject (workspace-scoped, guest-scoped); loadTask matches on projectId, so a task
+  from another project or workspace never resolves. All failures are 404.
+- Zod strips unknown keys, so position, projectId, workspaceId, createdBy and version can never be mass-assigned.
+- Updates and moves are atomic and version-checked; a stale client gets 409 and the current task.
+- Limits: 100 tasks per column in the board response, 5000 tasks per project, 2000-character descriptions.
+- Not yet done: a rate limiter for task writes (planned for Phase 15), and the socket events (Phase 8) must reuse
+  the same permission checks.
