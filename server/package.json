@@ -11,7 +11,7 @@
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
-    "test": "node --env-file-if-exists=.env --test"
+    "test": "node --env-file-if-exists=.env --test \"tests/**/*.test.js\""
   },
   "keywords": [],
   "author": "",
@@ -33,6 +33,7 @@
   },
   "devDependencies": {
     "nodemon": "^3.1.14",
+    "socket.io-client": "^4.8.4",
     "supertest": "^7.3.1"
   }
 }

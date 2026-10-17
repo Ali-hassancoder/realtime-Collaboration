@@ -9,7 +9,13 @@ import { WorkspaceInvite } from './workspaceInvite.model.js';
 import { Project } from '../projects/project.model.js';
 import { ProjectMember } from '../projects/projectMember.model.js';
 import { Task } from '../task/task.model.js';
-import { unassignUser } from '../task/task.cleanup.js';import { can, outranks, permissionsFor } from './workspace.permissions.js';
+import { Comment } from '../comment/comment.model.js';
+import { Message } from '../message/message.model.js';
+import { Activity } from '../activity/activity.model.js';
+import { Notification } from '../notification/notification.model.js';
+import { unassignUser } from '../task/task.cleanup.js';
+import { beginWorkspaceClose, syncUserAccess } from '../../sockets/realtime.js';
+import { can, outranks, permissionsFor } from './workspace.permissions.js';
 
 const INVITE_DAYS = 7;
 const forbidden = (msg = 'You do not have permission to do this.') => new AppError(403, 'FORBIDDEN', msg);
@@ -47,18 +53,31 @@ export async function getWorkspace(membership) {
 }
 
 export async function updateWorkspace(membership, changes) {
-  const workspace = await Workspace.findByIdAndUpdate(membership.workspaceId, { $set: changes }, { new: true, runValidators: true });
+  const workspace = await Workspace.findByIdAndUpdate(membership.workspaceId, { $set: changes }, { returnDocument: 'after', runValidators: true });
   if (!workspace) throw new AppError(404, 'WORKSPACE_NOT_FOUND', 'Workspace not found.');
   return withRole(workspace, membership.role);
 }
 
 export async function deleteWorkspace(membership) {
   const { workspaceId } = membership;
+  // Capture the rooms and members first: the data they come from is deleted below
+  const finishClose = await beginWorkspaceClose(workspaceId);
+
   // Workspace first: orphaned children are unreachable, a half-deleted workspace is not
   await Workspace.deleteOne({ _id: workspaceId });
   await WorkspaceMember.deleteMany({ workspaceId });
   await WorkspaceInvite.deleteMany({ workspaceId });
-  // Later phases: also delete projects, tasks, messages, etc. here
+  await Project.deleteMany({ workspaceId });
+  await ProjectMember.deleteMany({ workspaceId });
+  await Promise.all([
+    Task.deleteMany({ workspaceId }),
+    Comment.deleteMany({ workspaceId }),
+    Message.deleteMany({ workspaceId }),
+    Activity.deleteMany({ workspaceId }),
+    Notification.deleteMany({ workspaceId }),
+  ]);
+
+  finishClose();
 }
 
 // ---------- Members ----------
@@ -87,6 +106,8 @@ export async function updateMemberRole(actor, targetUserId, newRole) {
   }
   target.role = newRole;
   await target.save();
+  // A demotion to guest can remove live access to projects they are not on
+  await syncUserAccess(targetUserId, actor.workspaceId);
   return { userId: targetUserId, role: newRole };
 }
 
@@ -96,6 +117,11 @@ export async function removeMember(actor, targetUserId) {
       throw new AppError(403, 'OWNER_CANNOT_LEAVE', 'The owner cannot leave. Delete the workspace instead.');
     }
     await actor.deleteOne(); // leaving
+    await ProjectMember.deleteMany({ workspaceId: actor.workspaceId, userId: actor.userId });
+    // A member loses their inbox for this workspace with their access
+    await Notification.deleteMany({ recipientId: actor.userId, workspaceId: actor.workspaceId });
+    await unassignUser({ workspaceId: actor.workspaceId }, actor.userId);
+    await syncUserAccess(actor.userId, actor.workspaceId);
     return;
   }
 
@@ -103,6 +129,11 @@ export async function removeMember(actor, targetUserId) {
   if (!target) throw new AppError(404, 'MEMBER_NOT_FOUND', 'Member not found.');
   if (!can(actor.role, 'member:remove') || !outranks(actor.role, target.role)) throw forbidden();
   await target.deleteOne();
+  await ProjectMember.deleteMany({ workspaceId: target.workspaceId, userId: target.userId });
+  // A removed member loses their inbox for this workspace with their access
+  await Notification.deleteMany({ recipientId: target.userId, workspaceId: target.workspaceId });
+  await unassignUser({ workspaceId: target.workspaceId }, target.userId);
+  await syncUserAccess(target.userId, target.workspaceId);
 }
 
 // ---------- Invites ----------
@@ -126,7 +157,7 @@ export async function createInvite(actor, { email, role }) {
         expiresAt: new Date(Date.now() + INVITE_DAYS * 24 * 60 * 60 * 1000),
       },
     },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
+    { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
   );
 
   // The raw token is returned once and never stored
@@ -157,5 +188,6 @@ export async function acceptInvite(user, rawToken) {
   await WorkspaceInvite.deleteOne({ _id: invite._id });
 
   const membership = await WorkspaceMember.findOne({ workspaceId: invite.workspaceId, userId: user._id });
-  return getWorkspace(membership);
+  // invitedBy travels back so the controller can notify the person who sent the invite
+  return { workspace: await getWorkspace(membership), invitedBy: invite.invitedBy };
 }

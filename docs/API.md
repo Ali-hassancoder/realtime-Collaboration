@@ -63,3 +63,41 @@ DELETE /:taskId                                                                 
 Errors added: TASK_NOT_FOUND(404) TASK_VERSION_CONFLICT(409, error.details.current = latest task)
 POSITION_CONFLICT(409) PROJECT_ARCHIVED(409) INVALID_ASSIGNEE(400) TASK_LIMIT_REACHED(409)
 Writes in an archived project return PROJECT_ARCHIVED. A flat filtered list (GET /tasks?...) is not built yet.
+
+# Comments (Phase 9) - under .../tasks/:taskId/comments
+GET    /?before&limit  -> {comments[], hasMore}  (chronological, default 50, max 100)   task:read
+POST   / {body}        -> 201 {comment}          (author name embedded)                comment:create
+PATCH  /:commentId {version, body} -> {comment}  (author only)                         comment:edit_own
+DELETE /:commentId                                                                comment:delete_own,
+                                                                             or comment:delete_any (manager+)
+
+Errors added: COMMENT_NOT_FOUND(404 - also a comment from another task)
+COMMENT_VERSION_CONFLICT(409, error.details.current = latest comment)
+Comments follow the task's visibility; writes in an archived project return PROJECT_ARCHIVED.
+
+# Chat (Phase 10) - under /api/workspaces/:workspaceId/projects/:projectId/messages
+GET    /?before&limit  -> {messages[], hasMore}  (chronological, default 50, max 100)   message:read
+POST   / {body}        -> 201 {message}          (author name embedded)                message:create
+PATCH  /:messageId {version, body} -> {message}  (author only)                         message:edit_own
+DELETE /:messageId                                                                message:delete_own,
+                                                                              or message:delete_any (admin+)
+
+Errors added: MESSAGE_NOT_FOUND(404 - also a message from another project)
+MESSAGE_VERSION_CONFLICT(409, error.details.current = latest message)
+Writes in an archived project return PROJECT_ARCHIVED.
+
+# Activity feed (Phase 9) - under /api/workspaces/:workspaceId/projects/:projectId/activity
+GET /?before&limit -> {activities[], hasMore}  (newest first, default 30, max 100)     project:read
+Entry: {id, type, actor{id,name}, taskId (nullable), meta, createdAt}.
+Types: task.created, task.updated, task.moved, task.deleted, comment.created.
+Written by the server on task/comment writes (fire-and-forget); no write endpoint.
+
+# Notifications (Phase 11) - under /api/notifications, require auth
+GET   /?before&limit=30&unread=true -> {notifications[], hasMore, unreadCount}   (newest first, max 100)
+PATCH /:notificationId/read         -> {notification}   (idempotent; already read returns it unchanged)
+POST  /read-all                     -> {updated}        (marks every unread one read)
+Entry: {id, type, actor{id,name}, workspaceId, projectId (nullable), taskId (nullable), meta, readAt,
+createdAt}. Types: task.assigned, comment.created (on a task you are assigned to), project.member_added,
+invite.accepted. The inbox is personal: the only access check is authentication, and the server creates
+entries (fire-and-forget) on assignment, comment, team-add and invite-accept writes.
+Errors added: NOTIFICATION_NOT_FOUND(404 - also someone else's notification).

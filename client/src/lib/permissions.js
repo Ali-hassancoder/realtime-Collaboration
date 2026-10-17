@@ -12,6 +12,15 @@ export const ROLE_LABELS = {
   guest: 'Guest',
 };
 
+// Colorful gradient chips per role, used by <RoleBadge /> and workspace cards.
+export const ROLE_STYLES = {
+  owner: 'bg-gradient-to-r from-amber-400 to-orange-500 text-white',
+  admin: 'bg-gradient-to-r from-fuchsia-500 to-pink-500 text-white',
+  manager: 'bg-gradient-to-r from-violet-500 to-purple-500 text-white',
+  member: 'bg-gradient-to-r from-sky-500 to-indigo-500 text-white',
+  guest: 'bg-gradient-to-r from-slate-400 to-slate-500 text-white',
+};
+
 export const outranks = (a, b) => (RANK[a] ?? 0) > (RANK[b] ?? 0);
 
 // Reads the permission list the server sent with the workspace. UI hint only.

@@ -16,5 +16,4 @@ const make = (options) =>
 export const loginLimiter = make({ windowMs: 15 * 60 * 1000, limit: 10, skipSuccessfulRequests: true });
 export const registerLimiter = make({ windowMs: 60 * 60 * 1000, limit: 10 });
 export const refreshLimiter = make({ windowMs: 15 * 60 * 1000, limit: 60 });
-export const invitelimiter = make({ windowMs: 60 * 60 * 1000, limit: 30 });
 export const inviteLimiter = make({ windowMs: 60 * 60 * 1000, limit: 30 });

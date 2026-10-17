@@ -1,13 +1,18 @@
 export default function StatusRow({ label, state, detail }) {
   const colors = {
-    ok: 'bg-green-500',
-    error: 'bg-red-500',
-    loading: 'bg-yellow-400 animate-pulse',
+    ok: 'bg-emerald-500',
+    error: 'bg-rose-500',
+    loading: 'bg-amber-400',
   };
   return (
-    <li className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3">
+    <li className="glass-card card-glow flex items-center justify-between rounded-xl px-4 py-3">
       <div className="flex items-center gap-3">
-        <span className={`h-3 w-3 rounded-full ${colors[state]}`} aria-hidden="true" />
+        <span className="relative flex h-3 w-3" aria-hidden="true">
+          {state === 'loading' && (
+            <span className={`absolute inline-flex h-full w-full animate-ping rounded-full ${colors[state]} opacity-60`} />
+          )}
+          <span className={`relative inline-flex h-3 w-3 rounded-full ${colors[state]}`} />
+        </span>
         <span className="font-medium text-slate-800">{label}</span>
       </div>
       <span className="text-sm text-slate-500">{detail}</span>

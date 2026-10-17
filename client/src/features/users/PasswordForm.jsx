@@ -33,15 +33,20 @@ export default function PasswordForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
-      <h2 className="font-semibold text-slate-900">Change password</h2>
+    <form onSubmit={handleSubmit(onSubmit)} noValidate className="glass-card space-y-4 rounded-2xl p-5">
+      <h2 className="font-semibold">
+        <span className="text-gradient">Change password</span>
+      </h2>
       <p className="text-sm text-slate-500">You will be logged out on all devices afterwards.</p>
-      {serverError && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{serverError}</p>}
+      {serverError && (
+        <p role="alert" className="animate-fade-in rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">
+          {serverError}
+        </p>
+      )}
       <FormField label="Current password" type="password" autoComplete="current-password" error={errors.currentPassword?.message} {...register('currentPassword')} />
       <FormField label="New password" type="password" autoComplete="new-password" error={errors.newPassword?.message} {...register('newPassword')} />
       <FormField label="Confirm new password" type="password" autoComplete="new-password" error={errors.confirmPassword?.message} {...register('confirmPassword')} />
-      <button type="submit" disabled={isSubmitting}
-        className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60">
+      <button type="submit" disabled={isSubmitting} className="btn-gradient rounded-xl px-4 py-2 text-sm font-semibold">
         Change password
       </button>
     </form>

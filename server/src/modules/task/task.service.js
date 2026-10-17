@@ -1,6 +1,9 @@
 import { AppError } from '../../utils/AppError.js';
 import { ProjectMember } from '../projects/projectMember.model.js';
 import { can } from '../workspaces/workspace.permissions.js';
+import { Comment } from '../comment/comment.model.js';
+import { Activity } from '../activity/activity.model.js';
+import { Notification } from '../notification/notification.model.js';
 import { Task, TASK_STATUSES, MAX_TASKS_PER_PROJECT } from './task.model.js';
 import { betweenPosition, endPosition, startPosition, rebalanceColumn } from './task.ordering.js';
 
@@ -89,7 +92,7 @@ export async function updateTask(membership, project, task, { version, ...change
   const updated = await Task.findOneAndUpdate(
     { _id: task._id, projectId: project._id, version },
     { $set, $inc: { version: 1 } },
-    { new: true, runValidators: true }
+    { returnDocument: 'after', runValidators: true }
   );
   if (!updated) throw await conflictOrMissing(task._id, project._id);
   return updated;
@@ -133,7 +136,7 @@ export async function moveTask(project, task, { version, status, prevId, nextId 
   const moved = await Task.findOneAndUpdate(
     { _id: task._id, projectId: project._id, version },
     { $set: { status, position }, $inc: { version: 1 } },
-    { new: true, runValidators: true }
+    { returnDocument: 'after', runValidators: true }
   );
   if (!moved) throw await conflictOrMissing(task._id, project._id);
   return moved;
@@ -142,5 +145,10 @@ export async function moveTask(project, task, { version, status, prevId, nextId 
 export async function deleteTask(project, task) {
   assertProjectActive(project);
   await Task.deleteOne({ _id: task._id });
-  // Phase 9: also delete the task's comments and activity here
+  // The task's comments, history and notifications leave with it (docs/DATABASE.md cascades)
+  await Promise.all([
+    Comment.deleteMany({ taskId: task._id }),
+    Activity.deleteMany({ taskId: task._id }),
+    Notification.deleteMany({ taskId: task._id }),
+  ]);
 }

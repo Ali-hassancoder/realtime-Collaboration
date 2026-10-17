@@ -4,15 +4,15 @@ import assert from 'node:assert/strict';
 import request from 'supertest';
 import mongoose from 'mongoose';
 import { createApp } from '../src/app.js';
-import { User } from '../src/modules/users/user.model.js';
+import { User } from '../src/modules/users/users.model.js';
 import { Session } from '../src/modules/auth/session.model.js';
 import { Workspace } from '../src/modules/workspaces/workspace.model.js';
 import { WorkspaceMember } from '../src/modules/workspaces/workspaceMember.model.js';
 import { WorkspaceInvite } from '../src/modules/workspaces/workspaceInvite.model.js';
 import { Project } from '../src/modules/projects/project.model.js';
 import { ProjectMember } from '../src/modules/projects/projectMember.model.js';
-import { Task } from '../src/modules/tasks/task.model.js';
-import { STEP } from '../src/modules/tasks/task.ordering.js';
+import { Task } from '../src/modules/task/task.model.js';
+import { STEP } from '../src/modules/task/task.ordering.js';
 
 const testUri = process.env.MONGO_URI_TEST;
 const skipReason =

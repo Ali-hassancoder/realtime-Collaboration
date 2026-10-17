@@ -4,6 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import FullPageSpinner from '../../components/FullPageSpinner';
 import { hasPermission } from '../../lib/permissions';
+import TaskComments from '../comments/TaskComments';
 import { PRIORITIES, PRIORITY_KEYS, STATUSES, STATUS_KEYS } from './constants';
 import { useDeleteTask, useTask, useUpdateTask } from './hooks';
 
@@ -16,7 +17,8 @@ const schema = z.object({
   dueDate: z.string(), // '' = none
 });
 
-const inputClass = 'mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm disabled:bg-slate-50';
+const inputClass =
+  'mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm transition-colors focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-300 disabled:bg-slate-50';
 
 function TaskForm({ task, workspace, project, team, canEdit, canAssign, canDelete, onNotice, onRequestClose }) {
   const update = useUpdateTask();
@@ -77,14 +79,14 @@ function TaskForm({ task, workspace, project, team, canEdit, canAssign, canDelet
         <label className="block text-sm font-medium text-slate-700">
           Title
           <input {...register('title')} className={inputClass} aria-invalid={errors.title ? 'true' : 'false'} />
-          {errors.title && <span role="alert" className="mt-1 block text-sm text-red-600">{errors.title.message}</span>}
+          {errors.title && <span role="alert" className="mt-1 block text-sm text-rose-600">{errors.title.message}</span>}
         </label>
 
         <label className="block text-sm font-medium text-slate-700">
           Description
           <textarea {...register('description')} rows={4} maxLength={2000} className={inputClass} />
           {errors.description && (
-            <span role="alert" className="mt-1 block text-sm text-red-600">{errors.description.message}</span>
+            <span role="alert" className="mt-1 block text-sm text-rose-600">{errors.description.message}</span>
           )}
         </label>
 
@@ -123,11 +125,7 @@ function TaskForm({ task, workspace, project, team, canEdit, canAssign, canDelet
 
       <div className="flex flex-wrap items-center gap-2 pt-1">
         {canEdit && (
-          <button
-            type="submit"
-            disabled={update.isPending}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
-          >
+          <button type="submit" disabled={update.isPending} className="btn-gradient rounded-xl px-4 py-2 text-sm font-semibold">
             {update.isPending ? 'Saving...' : 'Save changes'}
           </button>
         )}
@@ -136,7 +134,7 @@ function TaskForm({ task, workspace, project, team, canEdit, canAssign, canDelet
             type="button"
             onClick={onDelete}
             disabled={del.isPending}
-            className="rounded-lg border border-red-300 px-4 py-2 text-sm text-red-700 hover:bg-red-50 disabled:opacity-60"
+            className="rounded-xl border border-rose-200 bg-white px-4 py-2 text-sm font-medium text-rose-600 shadow-sm transition-colors hover:border-rose-300 hover:bg-rose-50 disabled:opacity-60"
           >
             Delete task
           </button>
@@ -172,28 +170,34 @@ export default function TaskDialog({ workspace, project, taskId, team, onClose }
       }}
       aria-labelledby="task-dialog-title"
       // m-auto: Tailwind's reset removes the margin the browser uses to center modal dialogs
-      className="m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-xl bg-white p-0 text-slate-900 shadow-xl backdrop:bg-slate-900/50"
+      className="m-auto max-h-[90vh] w-[calc(100%-2rem)] max-w-lg animate-scale-in overflow-y-auto rounded-2xl bg-white p-0 text-slate-900 shadow-2xl backdrop:bg-slate-900/50 backdrop:backdrop-blur-sm"
     >
       <div className="space-y-4 p-5">
         <div className="flex items-start justify-between gap-3">
           <h2 id="task-dialog-title" className="text-lg font-semibold">
-            {canEdit ? 'Edit task' : 'Task'}
+            <span className="text-gradient">{canEdit ? 'Edit task' : 'Task'}</span>
           </h2>
           <button
             type="button"
             onClick={requestClose}
             aria-label="Close"
-            className="rounded px-2 py-1 text-slate-500 hover:bg-slate-100"
+            className="rounded-lg px-2 py-1 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
           >
             &times;
           </button>
         </div>
 
-        {archived && <p className="text-sm text-amber-700">This project is archived, so tasks are read-only.</p>}
+        {archived && (
+          <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700 ring-1 ring-amber-200">
+            This project is archived, so tasks are read-only.
+          </p>
+        )}
         {notice && (
           <p
             role="status"
-            className={`rounded-lg px-3 py-2 text-sm ${notice.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}
+            className={`animate-fade-in rounded-lg px-3 py-2 text-sm ring-1 ${
+              notice.ok ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-rose-50 text-rose-700 ring-rose-200'
+            }`}
           >
             {notice.text}
           </p>
@@ -201,24 +205,30 @@ export default function TaskDialog({ workspace, project, taskId, team, onClose }
 
         {isLoading && <FullPageSpinner />}
         {isError && (
-          <p role="alert" className="text-red-600">
+          <p role="alert" className="text-rose-600">
             {error.status === 404 ? 'This task no longer exists.' : error.message}
           </p>
         )}
         {task && (
-          // key={version}: when the server copy changes (after saving or a conflict) the form reloads from it
-          <TaskForm
-            key={task.version}
-            task={task}
-            workspace={workspace}
-            project={project}
-            team={team}
-            canEdit={canEdit}
-            canAssign={canAssign}
-            canDelete={canDelete}
-            onNotice={setNotice}
-            onRequestClose={requestClose}
-          />
+          <>
+            {/* key={version}: when the server copy changes (after saving or a conflict) the form reloads from it */}
+            <TaskForm
+              key={task.version}
+              task={task}
+              workspace={workspace}
+              project={project}
+              team={team}
+              canEdit={canEdit}
+              canAssign={canAssign}
+              canDelete={canDelete}
+              onNotice={setNotice}
+              onRequestClose={requestClose}
+            />
+            {/* Phase 9: the comment thread lives under the form, sharing the dialog's scroll area */}
+            <div className="border-t border-slate-200 pt-4">
+              <TaskComments workspace={workspace} project={project} taskId={task.id} />
+            </div>
+          </>
         )}
       </div>
     </dialog>

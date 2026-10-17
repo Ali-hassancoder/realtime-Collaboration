@@ -1,4 +1,5 @@
 import * as service from './workspace.service.js';
+import { notify } from '../notification/notification.service.js';
 
 const ok = (res, data, status = 200) => res.status(status).json({ success: true, data });
 
@@ -29,5 +30,15 @@ export const deleteInvite = async (req, res) => {
   ok(res, null);
 };
 
-export const acceptInvite = async (req, res) =>
-  ok(res, { workspace: await service.acceptInvite(req.user, req.validated.body.token) });
+export const acceptInvite = async (req, res) => {
+  const { workspace, invitedBy } = await service.acceptInvite(req.user, req.validated.body.token);
+  // The inviter hears back; notify() drops the case where they invited themselves
+  await notify({
+    recipientId: invitedBy,
+    actor: req.user,
+    type: 'invite.accepted',
+    workspaceId: workspace.id,
+    meta: { workspaceName: workspace.name },
+  });
+  ok(res, { workspace });
+};

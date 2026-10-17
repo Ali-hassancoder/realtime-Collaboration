@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { DragDropContext } from '@hello-pangea/dnd';
 import FullPageSpinner from '../../components/FullPageSpinner';
 import { hasPermission } from '../../lib/permissions';
@@ -7,7 +8,7 @@ import AddTaskForm from './AddTasksForm';
 import BoardColumn from './Boardcolumn';
 import TaskDialog from './TaskDialog';
 import { STATUSES } from './constants';
-import { useBoard, useMoveTask, usePendingMoveIds } from './hooks';
+import { useBoard, useMoveTask, usePendingMoveIds, useTaskEvents } from './hooks';
 
 const CONFLICT_CODES = ['TASK_VERSION_CONFLICT', 'POSITION_CONFLICT'];
 
@@ -16,8 +17,29 @@ export default function TaskBoard({ workspace, project }) {
   const { data: team = [] } = useProjectMembers(workspace.id, project.id);
   const move = useMoveTask(workspace.id, project.id);
   const pendingIds = usePendingMoveIds(project.id);
-  const [openId, setOpenId] = useState(null);
+  // A notification can deep-link straight to a task: ?task=<id> opens its dialog
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [openId, setOpenId] = useState(() => searchParams.get('task'));
   const [notice, setNotice] = useState(null);
+
+  useEffect(() => {
+    const taskParam = searchParams.get('task');
+    if (taskParam) setOpenId(taskParam);
+  }, [searchParams]);
+
+  const closeDialog = () => {
+    setOpenId(null);
+    if (searchParams.has('task')) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('task');
+      setSearchParams(next, { replace: true });
+    }
+  };
+
+  // Live updates from other users (Phase 8); a dismissed task closes its dialog too
+  useTaskEvents(workspace.id, project.id, {
+    onDeleted: (taskId) => setOpenId((current) => (current === taskId ? null : current)),
+  });
 
   const archived = project.status === 'archived';
   const canMove = hasPermission(workspace, 'task:update') && !archived;
@@ -59,20 +81,29 @@ export default function TaskBoard({ workspace, project }) {
   return (
     <section className="space-y-3" aria-label="Task board">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold text-slate-900">Tasks</h2>
-        {archived && <p className="text-sm text-amber-700">This project is archived, so its board is read-only.</p>}
+        <h2 className="text-lg font-semibold">
+          <span className="text-gradient">Tasks</span>
+        </h2>
+        {archived && (
+          <p className="rounded-lg bg-amber-50 px-3 py-1.5 text-sm text-amber-700 ring-1 ring-amber-200">
+            This project is archived, so its board is read-only.
+          </p>
+        )}
       </div>
 
       {canCreate && <AddTaskForm workspaceId={workspace.id} projectId={project.id} />}
 
       {notice && (
-        <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{notice}</p>
+        <p role="alert" className="animate-fade-in rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">
+          {notice}
+        </p>
       )}
 
       {isLoading && <FullPageSpinner />}
       {isError && (
-        <p role="alert" className="text-red-600">
-          {error.message} <button onClick={() => refetch()} className="underline">Retry</button>
+        <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">
+          {error.message}{' '}
+          <button onClick={() => refetch()} className="font-medium underline hover:text-rose-800">Retry</button>
         </p>
       )}
 
@@ -101,7 +132,7 @@ export default function TaskBoard({ workspace, project }) {
           project={project}
           taskId={openId}
           team={team}
-          onClose={() => setOpenId(null)}
+          onClose={closeDialog}
         />
       )}
     </section>

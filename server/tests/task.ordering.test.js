@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { betweenPosition, MIN_GAP, STEP } from '../src/modules/tasks/task.ordering.js';
+import { betweenPosition, MIN_GAP, STEP } from '../src/modules/task/task.ordering.js';
 
 describe('betweenPosition', () => {
   test('returns the midpoint of two positions', () => {

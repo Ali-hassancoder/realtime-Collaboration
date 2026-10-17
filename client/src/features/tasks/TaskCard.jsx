@@ -25,22 +25,32 @@ export default function TaskCard({ task, index, assigneeName, disabled, saving, 
           onKeyDown={(e) => {
             if (e.key === 'Enter') onOpen(task.id); // Space is used by the library to lift the card
           }}
-          className={`cursor-pointer rounded-lg border bg-white p-3 text-left shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 ${
-            snapshot.isDragging ? 'border-indigo-400 shadow-lg' : 'border-slate-200'
+          className={`cursor-pointer rounded-xl border bg-white p-3 text-left shadow-sm outline-none transition-all duration-200 focus-visible:ring-2 focus-visible:ring-violet-400 ${
+            snapshot.isDragging
+              ? 'rotate-1 border-violet-400 shadow-xl ring-2 ring-violet-300'
+              : 'border-slate-200 hover:-translate-y-0.5 hover:border-violet-200 hover:shadow-md'
           } ${saving ? 'opacity-70' : ''}`}
         >
           <p className="break-words text-sm font-medium text-slate-900">{task.title}</p>
           <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-            <span className={`rounded-full px-2 py-0.5 ${priority.className}`}>{priority.label}</span>
-            {task.dueDate && (
-              <span className={overdue ? 'font-medium text-red-700' : 'text-slate-500'}>
-                {overdue ? 'Overdue: ' : 'Due '}
-                {formatDue(task.dueDate)}
-              </span>
-            )}
+            <span className={`rounded-full px-2 py-0.5 font-medium ${priority.className}`}>{priority.label}</span>
+            {task.dueDate &&
+              (overdue ? (
+                <span className="rounded-full bg-rose-50 px-2 py-0.5 font-medium text-rose-600 ring-1 ring-rose-200">
+                  Overdue: {formatDue(task.dueDate)}
+                </span>
+              ) : (
+                <span className="text-slate-500">Due {formatDue(task.dueDate)}</span>
+              ))}
             {assigneeName && (
-              <span className="text-slate-500">
+              <span className="ml-auto flex items-center gap-1.5 text-slate-500">
                 <span className="sr-only">Assigned to </span>
+                <span
+                  aria-hidden="true"
+                  className="flex h-5 w-5 items-center justify-center rounded-full bg-gradient-to-br from-indigo-400 to-fuchsia-400 text-[10px] font-bold text-white"
+                >
+                  {assigneeName.charAt(0).toUpperCase()}
+                </span>
                 {assigneeName}
               </span>
             )}

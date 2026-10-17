@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { validate } from '../../middleware/validate.js';
 import { requirePermission } from '../workspaces/workspace.middleware.js';
 import { loadTask } from './task.middleware.js';
+import commentRoutes from '../comment/comment.routes.js';
 import * as v from './task.validation.js';
 import * as c from './task.controller.js';
 
@@ -16,5 +17,8 @@ router.get('/:taskId', requirePermission('task:read'), loadTask, c.get);
 router.patch('/:taskId', requirePermission('task:update'), loadTask, validate({ body: v.updateTaskSchema }), c.update);
 router.post('/:taskId/move', requirePermission('task:update'), loadTask, validate({ body: v.moveTaskSchema }), c.move);
 router.delete('/:taskId', requirePermission('task:delete'), loadTask, c.remove);
+
+// Comments: the task is resolved first, then each comment route checks its own permission
+router.use('/:taskId/comments', commentRoutes);
 
 export default router;

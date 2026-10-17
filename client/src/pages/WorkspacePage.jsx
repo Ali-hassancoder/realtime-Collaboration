@@ -6,7 +6,8 @@ import MemberList from '../features/workspaces/MemberList';
 import InviteSection from '../features/workspaces/InviteSection';
 import WorkspaceSettings from '../features/workspaces/WorkspaceSettings';
 import FullPageSpinner from '../components/FullPageSpinner';
-import { hasPermission, ROLE_LABELS } from '../lib/permissions';
+import RoleBadge from '../components/RoleBadge';
+import { hasPermission } from '../lib/permissions';
 
 export default function WorkspacePage() {
   const { workspaceId } = useParams();
@@ -16,10 +17,12 @@ export default function WorkspacePage() {
   if (isLoading) return <FullPageSpinner />;
   if (isError) {
     return (
-      <div className="text-center">
+      <div className="py-10 text-center">
         <h1 className="text-xl font-bold text-slate-900">{error.status === 404 ? 'Workspace not found' : 'Something went wrong'}</h1>
         <p className="mt-1 text-slate-600">{error.message}</p>
-        <Link to="/dashboard" className="mt-4 inline-block text-indigo-600 hover:underline">Back to dashboard</Link>
+        <Link to="/dashboard" className="btn-gradient mt-5 inline-block rounded-xl px-4 py-2 text-sm font-semibold">
+          Back to dashboard
+        </Link>
       </div>
     );
   }
@@ -27,12 +30,16 @@ export default function WorkspacePage() {
   return (
     <div className="space-y-8">
       <div>
-        <Link to="/dashboard" className="text-sm text-indigo-600 hover:underline">&larr; All workspaces</Link>
-        <h1 className="mt-2 text-2xl font-bold text-slate-900">{workspace.name}</h1>
-        <p className="text-slate-600">{workspace.description || 'No description'}</p>
-        <span className="mt-2 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
-          Your role: {ROLE_LABELS[workspace.role]}
-        </span>
+        <Link to="/dashboard" className="text-sm font-medium text-violet-600 transition-colors hover:text-fuchsia-600 hover:underline">
+          &larr; All workspaces
+        </Link>
+        <h1 className="mt-2 text-3xl font-extrabold">
+          <span className="text-gradient">{workspace.name}</span>
+        </h1>
+        <p className="mt-1 text-slate-600">{workspace.description || 'No description'}</p>
+        <div className="mt-3 flex items-center gap-2 text-sm text-slate-600">
+          Your role: <RoleBadge role={workspace.role} />
+        </div>
       </div>
       <ProjectList workspace={workspace} />
       <MemberList workspaceId={workspace.id} myRole={workspace.role} myUserId={user.id} />

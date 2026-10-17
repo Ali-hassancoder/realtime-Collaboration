@@ -9,6 +9,7 @@ import authRoutes from './modules/auth/auth.routes.js';
 import usersRoutes from './modules/users/users.routes.js';
 import workspaceRoutes from './modules/workspaces/workspace.routes.js';
 import inviteRoutes from './modules/workspaces/invite.routes.js';
+import notificationRoutes from './modules/notification/notification.routes.js';
 
 export function createApp() {
   const app = express();
@@ -23,10 +24,10 @@ export function createApp() {
   });
 
   app.use('/api/auth', authRoutes);
-  app.use('/api/auth', authRoutes);
   app.use('/api/users', usersRoutes);
   app.use('/api/workspaces', workspaceRoutes);
   app.use('/api/invites', inviteRoutes);
+  app.use('/api/notifications', notificationRoutes);
 
   app.use(notFound);
   app.use(errorHandler);

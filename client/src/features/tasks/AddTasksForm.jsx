@@ -35,17 +35,17 @@ export default function AddTaskForm({ workspaceId, projectId }) {
           placeholder="Add a task to To do..."
           aria-invalid={message ? 'true' : 'false'}
           {...register('title')}
-          className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+          className="w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm shadow-sm outline-none transition-colors placeholder:text-slate-400 focus:border-violet-500 focus:ring-2 focus:ring-violet-300"
         />
         <button
           type="submit"
           disabled={create.isPending}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+          className="btn-gradient shrink-0 rounded-xl px-4 py-2 text-sm font-semibold"
         >
           Add
         </button>
       </div>
-      {message && <p role="alert" className="text-sm text-red-600">{message}</p>}
+      {message && <p role="alert" className="animate-fade-in text-sm text-rose-600">{message}</p>}
     </form>
   );
 }

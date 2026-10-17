@@ -1,1 +1,184 @@
 @import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   Design system: colorful, animated, professional SaaS look.
+   Brand gradient: indigo -> violet -> fuchsia, with cyan as a cool accent.
+   --------------------------------------------------------------------------- */
+
+@theme {
+  --animate-fade-up: fade-up 0.5s ease-out both;
+  --animate-fade-in: fade-in 0.4s ease-out both;
+  --animate-scale-in: scale-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-pop: pop 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-float: float 7s ease-in-out infinite;
+  --animate-blob: blob 16s ease-in-out infinite;
+  --animate-aurora-x: aurora-x 10s ease infinite;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes blob {
+  0%,
+  100% {
+    transform: translate(0, 0) scale(1);
+  }
+  33% {
+    transform: translate(28px, -36px) scale(1.08);
+  }
+  66% {
+    transform: translate(-24px, 22px) scale(0.94);
+  }
+}
+
+@keyframes aurora-x {
+  0%,
+  100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+body {
+  @apply bg-gradient-to-br from-indigo-50 via-white to-fuchsia-50 text-slate-800 antialiased;
+  min-height: 100vh;
+}
+
+/* Gradient text ------------------------------------------------------------------ */
+
+.text-gradient {
+  background-image: linear-gradient(100deg, #4f46e5, #9333ea, #db2777, #0891b2);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.text-gradient-animated {
+  background-image: linear-gradient(100deg, #4f46e5, #9333ea, #db2777, #0891b2, #4f46e5);
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: aurora-x 8s ease infinite;
+}
+
+/* Surfaces ----------------------------------------------------------------------- */
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow: 0 10px 30px -18px rgba(79, 70, 229, 0.25);
+}
+
+.card-glow {
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.card-glow:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 20px 45px -20px rgba(124, 58, 237, 0.45);
+}
+
+/* Buttons ------------------------------------------------------------------------ */
+
+.btn-gradient {
+  background-image: linear-gradient(100deg, #4f46e5, #7c3aed, #db2777);
+  background-size: 180% 100%;
+  color: #fff;
+  box-shadow: 0 10px 24px -12px rgba(124, 58, 237, 0.65);
+  transition: background-position 0.35s ease, transform 0.15s ease, box-shadow 0.25s ease;
+}
+
+.btn-gradient:hover {
+  background-position: 100% 50%;
+  box-shadow: 0 14px 30px -12px rgba(219, 39, 119, 0.6);
+}
+
+.btn-gradient:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+.btn-gradient:disabled {
+  opacity: 0.6;
+  box-shadow: none;
+}
+
+/* Staggered list entrance --------------------------------------------------------- */
+
+.stagger > * {
+  animation: fade-up 0.5s ease-out both;
+}
+
+.stagger > *:nth-child(1) { animation-delay: 0.03s; }
+.stagger > *:nth-child(2) { animation-delay: 0.08s; }
+.stagger > *:nth-child(3) { animation-delay: 0.13s; }
+.stagger > *:nth-child(4) { animation-delay: 0.18s; }
+.stagger > *:nth-child(5) { animation-delay: 0.23s; }
+.stagger > *:nth-child(6) { animation-delay: 0.28s; }
+.stagger > *:nth-child(7) { animation-delay: 0.33s; }
+.stagger > *:nth-child(8) { animation-delay: 0.38s; }
+
+/* Accessibility: honor reduced-motion preferences --------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

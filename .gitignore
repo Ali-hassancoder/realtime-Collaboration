@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Environment files (examples are committed on purpose)
+.env
+.env.*
+!.env.example
+
+# Build output
+dist/
+build/
+coverage/
+
+# Logs
+logs
+*.log
+
+# Editor and OS files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store

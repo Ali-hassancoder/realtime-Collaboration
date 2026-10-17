@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import request from 'supertest';
 import mongoose from 'mongoose';
 import { createApp } from '../src/app.js';
-import { User } from '../src/modules/users/user.model.js';
+import { User } from '../src/modules/users/users.model.js';
 import { Session } from '../src/modules/auth/session.model.js';
 import { Workspace } from '../src/modules/workspaces/workspace.model.js';
 import { WorkspaceMember } from '../src/modules/workspaces/workspaceMember.model.js';

@@ -43,44 +43,45 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="mx-auto max-w-sm">
-      <h1 className="mb-6 text-2xl font-bold text-slate-900">Create your account</h1>
-      <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
-        {serverError && (
-          <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
-            {serverError}
-          </p>
-        )}
-        <FormField label="Name" autoComplete="name" error={errors.name?.message} {...register('name')} />
-        <FormField label="Email" type="email" autoComplete="email" error={errors.email?.message} {...register('email')} />
-        <FormField
-          label="Password"
-          type="password"
-          autoComplete="new-password"
-          error={errors.password?.message}
-          {...register('password')}
-        />
-        <FormField
-          label="Confirm password"
-          type="password"
-          autoComplete="new-password"
-          error={errors.confirmPassword?.message}
-          {...register('confirmPassword')}
-        />
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="w-full rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
-        >
-          {isSubmitting ? 'Creating account...' : 'Create account'}
-        </button>
-      </form>
-      <p className="mt-4 text-sm text-slate-600">
-        Already registered?{' '}
-        <Link to="/login" className="text-indigo-600 hover:underline">
-          Log in
-        </Link>
-      </p>
+    <div className="mx-auto max-w-sm animate-scale-in">
+      <div className="glass-card rounded-2xl p-6 sm:p-8">
+        <h1 className="text-2xl font-bold">
+          <span className="text-gradient">Create your account</span>
+        </h1>
+        <p className="mb-6 mt-1 text-sm text-slate-500">Start collaborating with your team in minutes.</p>
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
+          {serverError && (
+            <p role="alert" className="animate-fade-in rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">
+              {serverError}
+            </p>
+          )}
+          <FormField label="Name" autoComplete="name" error={errors.name?.message} {...register('name')} />
+          <FormField label="Email" type="email" autoComplete="email" error={errors.email?.message} {...register('email')} />
+          <FormField
+            label="Password"
+            type="password"
+            autoComplete="new-password"
+            error={errors.password?.message}
+            {...register('password')}
+          />
+          <FormField
+            label="Confirm password"
+            type="password"
+            autoComplete="new-password"
+            error={errors.confirmPassword?.message}
+            {...register('confirmPassword')}
+          />
+          <button type="submit" disabled={isSubmitting} className="btn-gradient w-full rounded-xl px-4 py-2.5 font-semibold">
+            {isSubmitting ? 'Creating account...' : 'Create account'}
+          </button>
+        </form>
+        <p className="mt-5 text-sm text-slate-600">
+          Already registered?{' '}
+          <Link to="/login" className="font-medium text-violet-600 transition-colors hover:text-fuchsia-600 hover:underline">
+            Log in
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }

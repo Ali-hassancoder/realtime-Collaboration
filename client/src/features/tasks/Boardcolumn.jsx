@@ -6,10 +6,13 @@ export default function BoardColumn({ status, column, names, canMove, pendingIds
   const headingId = `column-${status.key}`;
 
   return (
-    <section aria-labelledby={headingId} className="flex min-w-64 flex-1 flex-col rounded-lg bg-slate-100 p-2">
+    <section aria-labelledby={headingId} className={`flex min-w-64 flex-1 flex-col rounded-2xl p-2 ring-1 ${status.columnClass}`}>
       <h3 id={headingId} className="mb-2 flex items-center justify-between px-1 text-sm font-semibold text-slate-700">
-        <span>{status.label}</span>
-        <span className="rounded-full bg-white px-2 py-0.5 text-xs font-normal text-slate-600">
+        <span className="flex items-center gap-2">
+          <span className={`h-2.5 w-2.5 rounded-full ${status.dot}`} aria-hidden="true" />
+          {status.label}
+        </span>
+        <span className="rounded-full bg-white/90 px-2 py-0.5 text-xs font-normal text-slate-600 shadow-sm">
           {column.total > shown ? `${shown} of ${column.total}` : column.total}
         </span>
       </h3>
@@ -19,8 +22,8 @@ export default function BoardColumn({ status, column, names, canMove, pendingIds
           <div
             ref={provided.innerRef}
             {...provided.droppableProps}
-            className={`min-h-24 flex-1 space-y-2 rounded-md p-1 transition-colors ${
-              snapshot.isDraggingOver ? 'bg-indigo-50' : ''
+            className={`min-h-24 flex-1 space-y-2 rounded-xl p-1 transition-all duration-200 ${
+              snapshot.isDraggingOver ? 'bg-white/80 ring-2 ring-violet-300' : ''
             }`}
           >
             {column.tasks.map((task, index) => {

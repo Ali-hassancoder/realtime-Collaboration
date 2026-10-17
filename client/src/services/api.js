@@ -5,7 +5,9 @@ const NO_REFRESH = ['/api/auth/login', '/api/auth/register', '/api/auth/refresh'
 
 let refreshPromise = null;
 
-function refreshSession() {
+// Shared by REST retries and the socket. Refresh tokens are single-use,
+// so concurrent callers must share one call.
+export function refreshSession() {
   refreshPromise ??= fetch(`${env.apiUrl}/api/auth/refresh`, { method: 'POST', credentials: 'include' })
     .then((r) => r.ok)
     .catch(() => false)

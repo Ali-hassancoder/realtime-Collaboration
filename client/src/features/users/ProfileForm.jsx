@@ -29,17 +29,23 @@ export default function ProfileForm({ user }) {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
-      <h2 className="font-semibold text-slate-900">Profile</h2>
+    <form onSubmit={handleSubmit(onSubmit)} noValidate className="glass-card space-y-4 rounded-2xl p-5">
+      <h2 className="font-semibold">
+        <span className="text-gradient">Profile</span>
+      </h2>
       {message && (
-        <p role="status" className={`rounded-lg px-3 py-2 text-sm ${message.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+        <p
+          role="status"
+          className={`animate-fade-in rounded-lg px-3 py-2 text-sm ring-1 ${
+            message.ok ? 'bg-emerald-50 text-emerald-700 ring-emerald-200' : 'bg-rose-50 text-rose-700 ring-rose-200'
+          }`}
+        >
           {message.text}
         </p>
       )}
       <p className="text-sm text-slate-500">Email: {user.email}</p>
       <FormField label="Name" error={errors.name?.message} {...register('name')} />
-      <button type="submit" disabled={isSubmitting}
-        className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60">
+      <button type="submit" disabled={isSubmitting} className="btn-gradient rounded-xl px-4 py-2 text-sm font-semibold">
         Save
       </button>
     </form>

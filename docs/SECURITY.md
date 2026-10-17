@@ -49,3 +49,15 @@
 - Limits: 100 tasks per column in the board response, 5000 tasks per project, 2000-character descriptions.
 - Not yet done: a rate limiter for task writes (planned for Phase 15), and the socket events (Phase 8) must reuse
   the same permission checks.
+
+  ## Sockets (Phase 7)
+- Handshake authentication uses the access cookie; failures are rejected before any event handler runs.
+- Origin must match CLIENT_URL when present (cross-site WebSocket hijacking).
+- Room joins are validated with Zod (strings only, so operator objects never reach a query) and authorized with the same
+  functions as REST. Everything inaccessible returns a "not found" code. Room names come from database documents.
+- Revocation: access changes remove the user's sockets from affected rooms. Joins re-check after joining.
+- Sockets live no longer than the access token. Like REST, a stolen access token works until it expires
+  (up to ACCESS_TOKEN_MINUTES) even after logout or a password change.
+- Limits: 10 KB messages, 10 connections per user, 60 events / 10 s per socket with disconnect on abuse, 50 rooms per socket.
+- Known gaps: connection counts are per process (move to the adapter if Redis is added); no per-IP limit on handshake
+  attempts yet (Phase 15); typing/presence events will need their own throttling (Phase 12).

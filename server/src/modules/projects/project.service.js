@@ -4,8 +4,12 @@ import { isProjectScoped } from '../workspaces/workspace.permissions.js';
 import { Project } from './project.model.js';
 import { ProjectMember } from './projectMember.model.js';
 import { Task } from '../task/task.model.js';
+import { Comment } from '../comment/comment.model.js';
+import { Message } from '../message/message.model.js';
+import { Activity } from '../activity/activity.model.js';
+import { Notification } from '../notification/notification.model.js';
 import { unassignUser } from '../task/task.cleanup.js';
-
+import { closeProject, syncUserAccess } from '../../sockets/realtime.js';
 
 export async function listProjects(membership, { status, page, limit }) {
   const filter = { workspaceId: membership.workspaceId, status };
@@ -63,7 +67,14 @@ export async function deleteProject(project) {
   // Project first: orphaned children are unreachable, a half-deleted project is not
   await Project.deleteOne({ _id: project._id });
   await ProjectMember.deleteMany({ projectId: project._id });
-  // Phase 6: also delete tasks (and their comments) here
+  await Promise.all([
+    Task.deleteMany({ projectId: project._id }),
+    Comment.deleteMany({ projectId: project._id }),
+    Message.deleteMany({ projectId: project._id }),
+    Activity.deleteMany({ projectId: project._id }),
+    Notification.deleteMany({ projectId: project._id }),
+  ]);
+  closeProject(project.workspaceId, project._id);
 }
 
 export async function listProjectMembers(project) {
@@ -111,8 +122,11 @@ export async function addProjectMember(actor, project, userId) {
 }
 
 export async function removeProjectMember(project, userId) {
+  await unassignUser({ projectId: project._id }, userId);
   const result = await ProjectMember.deleteOne({ projectId: project._id, userId });
   if (result.deletedCount === 0) {
     throw new AppError(404, 'PROJECT_MEMBER_NOT_FOUND', 'That person is not on this project.');
   }
+  // A guest loses live access to the project's room
+  await syncUserAccess(userId, project.workspaceId);
 }

@@ -29,16 +29,18 @@ export default function CreateWorkspaceForm() {
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4 rounded-lg border border-slate-200 bg-white p-4">
-      <h2 className="font-semibold text-slate-900">Create a workspace</h2>
-      {serverError && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{serverError}</p>}
+    <form onSubmit={handleSubmit(onSubmit)} noValidate className="glass-card space-y-4 rounded-2xl p-5">
+      <h2 className="font-semibold">
+        <span className="text-gradient">Create a workspace</span>
+      </h2>
+      {serverError && (
+        <p role="alert" className="animate-fade-in rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">
+          {serverError}
+        </p>
+      )}
       <FormField label="Name" error={errors.name?.message} {...register('name')} />
       <FormField label="Description (optional)" error={errors.description?.message} {...register('description')} />
-      <button
-        type="submit"
-        disabled={create.isPending}
-        className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
-      >
+      <button type="submit" disabled={create.isPending} className="btn-gradient rounded-xl px-4 py-2 text-sm font-semibold">
         {create.isPending ? 'Creating...' : 'Create workspace'}
       </button>
     </form>

@@ -1,6 +1,9 @@
+import { useEffect, useRef } from 'react';
 import { useMutation, useMutationState, useQuery, useQueryClient } from '@tanstack/react-query';
+import { socket } from '../../services/socket';
+import { useAuth } from '../auth/useAuth';
 import * as api from '../../services/tasks';
-import { moveInBoard } from './boardUtils';
+import { moveInBoard, removeFromBoard, upsertInBoard } from './boardUtils';
 
 // Nested under the Phase 5 project keys, so project-level invalidation also refreshes the board
 const projectKey = (workspaceId, projectId) => ['workspaces', workspaceId, 'projects', projectId];
@@ -83,3 +86,45 @@ export const usePendingMoveIds = (projectId) =>
     filters: { mutationKey: moveKey(projectId), status: 'pending' },
     select: (mutation) => mutation.state.variables?.taskId,
   });
+
+// Applies Phase 8 task events (task.created / task.updated / task.deleted, docs/SOCKET_EVENTS.md)
+// to the cached board while this project's board is open. The acting client ignores its own
+// events: its REST response (or optimistic move) is already applied.
+export function useTaskEvents(workspaceId, projectId, { onDeleted } = {}) {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
+  const onDeletedRef = useRef(onDeleted);
+  onDeletedRef.current = onDeleted;
+
+  useEffect(() => {
+    const board = boardKey(workspaceId, projectId);
+    const isMine = (actorId) => actorId === userId;
+
+    const onCreated = ({ task, actorId }) => {
+      if (isMine(actorId)) return;
+      queryClient.setQueryData(board, (current) => (current ? upsertInBoard(current, task) : current));
+    };
+    const onUpdated = ({ task, actorId }) => {
+      if (isMine(actorId)) return;
+      queryClient.setQueryData(board, (current) => (current ? upsertInBoard(current, task) : current));
+      // A dialog already open on this task follows the new version (TaskForm resets on key={version})
+      const single = taskKey(workspaceId, projectId, task.id);
+      if (queryClient.getQueryData(single) !== undefined) queryClient.setQueryData(single, task);
+    };
+    const onRemoved = ({ taskId, actorId }) => {
+      if (isMine(actorId)) return;
+      queryClient.setQueryData(board, (current) => (current ? removeFromBoard(current, taskId) : current));
+      onDeletedRef.current?.(taskId);
+    };
+
+    socket.on('task.created', onCreated);
+    socket.on('task.updated', onUpdated);
+    socket.on('task.deleted', onRemoved);
+    return () => {
+      socket.off('task.created', onCreated);
+      socket.off('task.updated', onUpdated);
+      socket.off('task.deleted', onRemoved);
+    };
+  }, [workspaceId, projectId, userId, queryClient]);
+}

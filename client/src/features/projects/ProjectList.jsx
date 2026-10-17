@@ -24,8 +24,10 @@ export default function ProjectList({ workspace }) {
     <button
       onClick={() => changeStatus(value)}
       aria-pressed={status === value}
-      className={`rounded-lg px-3 py-1 text-sm ${
-        status === value ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'
+      className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-all ${
+        status === value
+          ? 'bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-sm shadow-violet-500/30'
+          : 'text-slate-600 hover:bg-white/80 hover:text-violet-700'
       }`}
     >
       {label}
@@ -35,14 +37,16 @@ export default function ProjectList({ workspace }) {
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold text-slate-900">Projects</h2>
+        <h2 className="text-lg font-semibold">
+          <span className="text-gradient">Projects</span>
+        </h2>
         <div className="flex items-center gap-2">
           {tab('active', 'Active')}
           {tab('archived', 'Archived')}
           {canCreate && !showForm && (
             <button
               onClick={() => setShowForm(true)}
-              className="rounded-lg border border-indigo-600 px-3 py-1 text-sm text-indigo-600 hover:bg-indigo-50"
+              className="rounded-xl border border-violet-300 bg-white px-3.5 py-1.5 text-sm font-medium text-violet-600 shadow-sm transition-colors hover:bg-violet-50"
             >
               New project
             </button>
@@ -54,13 +58,14 @@ export default function ProjectList({ workspace }) {
 
       {isLoading && <FullPageSpinner />}
       {isError && (
-        <p role="alert" className="text-red-600">
-          {error.message} <button onClick={() => refetch()} className="underline">Retry</button>
+        <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">
+          {error.message}{' '}
+          <button onClick={() => refetch()} className="font-medium underline hover:text-rose-800">Retry</button>
         </p>
       )}
 
       {data?.projects.length === 0 && (
-        <p className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-slate-600">
+        <p className="rounded-2xl border-2 border-dashed border-violet-200 bg-white/60 p-6 text-center text-slate-600">
           {status === 'archived'
             ? 'No archived projects.'
             : isGuest
@@ -72,15 +77,22 @@ export default function ProjectList({ workspace }) {
       )}
 
       {data?.projects.length > 0 && (
-        <ul className={`grid gap-3 sm:grid-cols-2 ${isPlaceholderData ? 'opacity-60' : ''}`}>
+        <ul className={`stagger grid gap-3 sm:grid-cols-2 ${isPlaceholderData ? 'opacity-60' : ''}`}>
           {data.projects.map((p) => (
             <li key={p.id}>
               <Link
                 to={`/workspaces/${workspace.id}/projects/${p.id}`}
-                className="block rounded-lg border border-slate-200 bg-white p-4 hover:border-indigo-400"
+                className="glass-card card-glow group block rounded-2xl p-4"
               >
-                <p className="font-semibold text-slate-900">{p.name}</p>
-                <p className="line-clamp-2 text-sm text-slate-500">{p.description || 'No description'}</p>
+                <div className="flex items-start gap-3">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-500 to-indigo-500 text-sm font-bold text-white shadow-md shadow-indigo-500/20 transition-transform duration-300 group-hover:scale-110">
+                    {p.name.charAt(0).toUpperCase()}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate font-semibold text-slate-900">{p.name}</p>
+                    <p className="line-clamp-2 text-sm text-slate-500">{p.description || 'No description'}</p>
+                  </div>
+                </div>
               </Link>
             </li>
           ))}
@@ -92,7 +104,7 @@ export default function ProjectList({ workspace }) {
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1}
-            className="rounded-lg px-3 py-1 hover:bg-slate-100 disabled:opacity-40"
+            className="rounded-lg px-3 py-1 transition-colors hover:bg-white/80 hover:text-violet-700 disabled:opacity-40"
           >
             Previous
           </button>
@@ -100,7 +112,7 @@ export default function ProjectList({ workspace }) {
           <button
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page >= totalPages}
-            className="rounded-lg px-3 py-1 hover:bg-slate-100 disabled:opacity-40"
+            className="rounded-lg px-3 py-1 transition-colors hover:bg-white/80 hover:text-violet-700 disabled:opacity-40"
           >
             Next
           </button>

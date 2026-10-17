@@ -116,3 +116,102 @@ Rejected because: More code for multi-column boards with no benefit here.
 
 Decision: Description limited to 2000 characters.
 Why: The global JSON body limit is 10 KB; 2000 characters stays under it even for multi-byte scripts.
+
+Decision: Authenticate sockets with the existing httpOnly access cookie, read from the handshake.
+Why: The same credential and the same checks as REST; JavaScript never handles a token.
+Alternative: Send the JWT in the Socket.IO `auth` option.
+Rejected because: It requires exposing the token to JavaScript, which is what the cookie design avoids.
+
+Decision: Check the Origin header on the handshake (allowRequest).
+Why: Same-site is not same-origin (another port on the same host is same-site), and WebSockets are not subject to CORS.
+Alternative: Rely on SameSite=Lax only.
+Rejected because: It leaves a cross-site WebSocket hijacking path in some deployments.
+
+Decision: One implementation of membership and project access, shared by REST and sockets.
+Why: Security rules for REST and Socket.IO must be consistent; two copies drift.
+Alternative: Duplicate the checks in the socket handlers.
+Rejected because: That is how REST and sockets end up disagreeing about who can see what.
+
+Decision: Revoke live access by re-deriving allowed rooms from the database and removing sockets
+(socketsLeave on the user room), instead of tracking each socket's rooms in memory.
+Why: Works with any Socket.IO adapter (including Redis later); no state to keep in sync.
+Alternative: Keep a per-socket room list and re-validate it.
+Rejected because: It breaks with a multi-instance adapter.
+
+Decision: Disconnect sockets when the access token expires; the client refreshes and reconnects.
+Why: Sockets get the same time limit as REST, with no separate session mechanism.
+Alternative: Authenticate once and keep the socket until it closes.
+Rejected because: A stolen or revoked session would stay live indefinitely.
+
+Decision: Process each socket's events one at a time, and re-check authorization after joining a room.
+Why: A quick join then leave cannot be reordered, and a revocation during a join cannot leave a stale membership.
+Alternative: Handle events concurrently.
+Rejected because: Both are real races.
+
+Decision: One design system in client/src/index.css (Tailwind v4 @theme tokens, keyframes and helper classes) for the colorful, animated UI.
+Why: The brand gradient (indigo -> violet -> fuchsia), entrance animations and surfaces stay consistent across screens, and role/status colors live in shared maps (ROLE_STYLES in lib/permissions.js, STATUSES/PRIORITIES in features/tasks/constants.js), so a new role or status gets its colors in one place.
+Alternative: Inline utility classes chosen per screen, or adding a component library.
+Rejected because: Per-screen styling drifts between pages; a component library adds a dependency for a small set of primitives.
+Note: All motion honors prefers-reduced-motion, and status/role colors are always paired with a text label (color is never the only signal).
+
+Decision: Task changes are published to the project room as the full task JSON, and clients apply them to the cached board directly.
+Why: One broadcast per change reaches every open board instantly with no refetch storm, and the payload is exactly the REST response, so there is one shape to keep consistent.
+Alternative: Emit a "board changed" ping and let every client refetch.
+Rejected because: Each tap from any user would refetch the whole board for everyone.
+Alternative: Emit field-level diffs.
+Rejected because: A client with a stale cache cannot rebuild the correct document from a diff.
+
+Decision: The acting client ignores its own task events (actorId match).
+Why: Its REST response (or optimistic move) is already applied; ignoring the echo avoids double-application and a race between the socket event and the HTTP response.
+Alternative: Apply every event, including your own.
+Rejected because: The two arrivals are not ordered, so applying both is a race with no upside.
+
+Decision: Comments and messages reuse the per-document version pattern of tasks (PATCH with 409 carrying the current copy).
+Why: One optimistic-concurrency model everywhere; a conflict shows the other person's text instead of overwriting it.
+Alternative: Last write wins with a full-body PATCH.
+Rejected because: Lost updates with no way to recover the other edit.
+
+Decision: Chat is a project-scoped room every project member shares; no direct messages in this phase.
+Why: The permission map (message:*), the project room and project cleanup already describe exactly who may chat where; a DM model would add conversations, participants and another cleanup chain.
+Alternative: Direct message threads between users.
+Rejected because: Out of scope for Phase 10; team chat matches the room model.
+
+Decision: Cursor pagination (before + limit, newest-first query with a limit+1 probe) for comments, messages and the feed.
+Why: All three grow with use; rows inserted while paging never shift or duplicate pages, and the probe keeps hasMore honest.
+Alternative: Offset pagination like projects (revisits the Phase 5 note).
+Rejected because: Inserts between pages make page 2 skip or repeat rows.
+
+Decision: One Activity collection records task and comment history; chat is deliberately excluded.
+Why: The feed answers "what happened on this project" - comments are discussion and tasks are work, while chat is high-volume, low-signal chatter that would bury both.
+Alternative: Also record messages, or derive the feed by auditing each collection.
+Rejected because: Messages drown the feed; deriving has no audit data for moves and edits.
+
+Decision: Activity is recorded fire-and-forget and its event is the one event not actor-filtered.
+Why: A feed entry must never fail the task or comment write it describes (failures are logged and dropped), and because the REST response does not carry the entry, the actor needs its own activity.created event too; clients dedupe by id instead of filtering by actor.
+Alternative: Actor-filter activity.created like the other events.
+Rejected because: The acting user's feed would silently miss their own actions until the next refetch.
+
+Decision: Notifications are delivered only to the recipient's user room (user:{id}) and never to a project room.
+Why: An inbox is personal; the room already exists for access.changed, so delivery is one emit per trigger and other project members never receive another person's notification (tested).
+Alternative: Emit to the project room and let each client filter by recipientId.
+Rejected because: It broadcasts personal data to everyone and depends on clients filtering correctly.
+
+Decision: Four notification triggers only: task.assigned, comment.created (on a task you are assigned to), project.member_added, invite.accepted.
+Why: Each one names a person who must react; task moves, edits and deletes are covered by the project feed instead of becoming per-user noise.
+Alternative: Notify on every write that mentions or touches the recipient.
+Rejected because: High-frequency events (moves, edits) would turn the inbox into a duplicate of the activity feed.
+
+Decision: Notification writes are fire-and-forget like activity, and self-notifications are dropped inside notify().
+Why: A bell entry must never fail the action it describes, and every caller shares one self-filter instead of repeating String(recipientId) !== String(actor._id).
+Alternative: Make the trigger write part of the request transaction and 500 on failure.
+Rejected because: A failed bell entry would break task assignment and commenting.
+
+Decision: Reading a notification is idempotent (readAt is set once); "mark all read" reports how many rows changed.
+Why: Clients may retry a PATCH after a network hiccup without moving the timestamp, and the bulk response is useful for tests and logs.
+Alternative: Always overwrite readAt on every PATCH.
+Rejected because: It rewrites history and makes "read at" meaningless.
+
+Decision: Leaving or being removed from a workspace deletes that user's notifications for the workspace; deleting a task, project or workspace cascades to the notifications that reference it.
+Why: A notification is a pointer to something the user can act on; after their access or the target is gone the pointer is dead, and dead inbox rows would accumulate forever without any read path that can resolve them.
+Alternative: Keep history rows and filter them at read time.
+Rejected because: The filter would need a live access check per row on every inbox page.

@@ -1,17 +1,11 @@
 import { AppError } from '../../utils/AppError.js';
-import { WorkspaceMember } from './workspaceMember.model.js';
 import { can } from './workspace.permissions.js';
-
-const OBJECT_ID = /^[a-f\d]{24}$/i;
+import { findMembership } from './workspace.access.js';
 
 // Loads the caller's membership. Non-members get 404 so IDs can't be probed.
 export async function loadMembership(req, _res, next) {
-  const { workspaceId } = req.params;
-  const notFound = new AppError(404, 'WORKSPACE_NOT_FOUND', 'Workspace not found.');
-  if (!OBJECT_ID.test(workspaceId)) throw notFound;
-
-  const membership = await WorkspaceMember.findOne({ workspaceId, userId: req.user._id });
-  if (!membership) throw notFound;
+  const membership = await findMembership(req.params.workspaceId, req.user._id);
+  if (!membership) throw new AppError(404, 'WORKSPACE_NOT_FOUND', 'Workspace not found.');
 
   req.membership = membership;
   next();

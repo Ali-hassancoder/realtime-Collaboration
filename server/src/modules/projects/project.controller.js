@@ -1,4 +1,5 @@
 import * as service from './project.service.js';
+import { notify } from '../notification/notification.service.js';
 
 const ok = (res, data, status = 200) => res.status(status).json({ success: true, data });
 
@@ -21,8 +22,18 @@ export const remove = async (req, res) => {
 export const listMembers = async (req, res) =>
   ok(res, { members: await service.listProjectMembers(req.project) });
 
-export const addMember = async (req, res) =>
-  ok(res, { member: await service.addProjectMember(req.membership, req.project, req.validated.body.userId) }, 201);
+export const addMember = async (req, res) => {
+  const member = await service.addProjectMember(req.membership, req.project, req.validated.body.userId);
+  await notify({
+    recipientId: req.validated.body.userId,
+    actor: req.user,
+    type: 'project.member_added',
+    workspaceId: req.project.workspaceId,
+    projectId: req.project._id,
+    meta: { projectName: req.project.name },
+  });
+  return ok(res, { member }, 201);
+};
 
 export const removeMember = async (req, res) => {
   await service.removeProjectMember(req.project, req.validated.params.userId);

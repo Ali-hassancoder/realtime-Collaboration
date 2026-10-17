@@ -3,6 +3,8 @@ import { validate } from '../../middleware/validate.js';
 import { requirePermission } from '../workspaces/workspace.middleware.js';
 import { loadProject } from './project.middleware.js';
 import taskRoutes from '../task/task.routes.js';
+import messageRoutes from '../message/message.routes.js';
+import activityRoutes from '../activity/activity.routes.js';
 import * as v from './project.validation.js';
 import * as c from './project.controller.js';
 
@@ -22,5 +24,9 @@ router.delete('/:projectId/members/:userId', requirePermission('project:manage_m
 
 // Tasks: the project is resolved first (including guest scoping); each task route then checks its own permission
 router.use('/:projectId/tasks', loadProject, taskRoutes);
+
+// Chat and the activity feed: the project is resolved first (including guest scoping)
+router.use('/:projectId/messages', loadProject, messageRoutes);
+router.use('/:projectId/activity', loadProject, activityRoutes);
 
 export default router;
