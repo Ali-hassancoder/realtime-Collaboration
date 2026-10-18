@@ -24,11 +24,13 @@ export async function authenticateSocket(socket, next) {
       return next(handshakeError('TOKEN_INVALID', 'Session expired or invalid.'));
     }
 
-    // Loading the user means a deleted account cannot connect
-    const user = await User.findById(payload.sub).select('_id');
+    // Loading the user means a deleted account cannot connect. The name is carried for
+    // presence/typing display (Phase 12); it is never a secret and never leaves a room.
+    const user = await User.findById(payload.sub).select('_id name');
     if (!user) return next(handshakeError('UNAUTHENTICATED', 'Authentication required.'));
 
     socket.data.userId = user.id;
+    socket.data.userName = user.name;
     socket.data.expiresAt = payload.exp * 1000;
     return next();
   } catch (err) {

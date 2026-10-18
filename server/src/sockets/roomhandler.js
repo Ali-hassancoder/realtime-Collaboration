@@ -4,6 +4,7 @@ import { can } from '../modules/workspaces/workspace.permissions.js';
 import { findMembership } from '../modules/workspaces/workspace.access.js';
 import { findAccessibleProject } from '../modules/projects/project.access.js';
 import { projectRoom, workspaceRoom } from './rooms.js';
+import { addPresence, leavePresence } from './presence.js';
 
 const MAX_ROOMS_PER_SOCKET = 50;
 
@@ -66,6 +67,9 @@ export async function joinRoom(socket, payload) {
     await socket.leave(room);
     throw err;
   }
+
+  // Presence (Phase 12) is project-scoped and starts only once the join is confirmed durable.
+  if (target.type === 'project') addPresence(socket, target.projectId);
   return { room };
 }
 
@@ -76,6 +80,7 @@ export async function leaveRoom(socket, payload) {
   if (!parsed.success) throw new AppError(400, 'VALIDATION_ERROR', 'Invalid room request.');
 
   const target = parsed.data;
+  if (target.type === 'project') leavePresence(socket, target.projectId);
   await socket.leave(target.type === 'workspace' ? workspaceRoom(target.workspaceId) : projectRoom(target.projectId));
   return {};
 }

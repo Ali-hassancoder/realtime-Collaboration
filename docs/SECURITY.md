@@ -13,7 +13,6 @@
 - Refresh-token reuse detection (token families) and "log out everywhere".
 - Account lockout / CAPTCHA.
 - CSRF tokens (only needed if client and API end up on different sites).
-- trust proxy setting for rate limiting behind a reverse proxy (Phase 17).
 
 ## Workspaces (Phase 3)
 - Every workspace route resolves the caller's membership server-side; client-sent roles are ignored.
@@ -47,8 +46,8 @@
 - Zod strips unknown keys, so position, projectId, workspaceId, createdBy and version can never be mass-assigned.
 - Updates and moves are atomic and version-checked; a stale client gets 409 and the current task.
 - Limits: 100 tasks per column in the board response, 5000 tasks per project, 2000-character descriptions.
-- Not yet done: a rate limiter for task writes (planned for Phase 15), and the socket events (Phase 8) must reuse
-  the same permission checks.
+- Task writes (create/edit/move/delete) are rate limited per authenticated user (120/min, Phase 15); the socket
+  events (Phase 8) reuse the same permission checks as REST.
 
   ## Sockets (Phase 7)
 - Handshake authentication uses the access cookie; failures are rejected before any event handler runs.
@@ -60,4 +59,21 @@
   (up to ACCESS_TOKEN_MINUTES) even after logout or a password change.
 - Limits: 10 KB messages, 10 connections per user, 60 events / 10 s per socket with disconnect on abuse, 50 rooms per socket.
 - Known gaps: connection counts are per process (move to the adapter if Redis is added); no per-IP limit on handshake
-  attempts yet (Phase 15); typing/presence events will need their own throttling (Phase 12).
+  attempts yet (Phase 15).
+
+## Presence and typing (Phase 12)
+- Transient and never persisted: a roster and typing blips live only in memory while sockets are connected, so there
+  is no data at rest to protect and nothing to leak through the database.
+- Typing is the only high-frequency client event, so it is throttled twice: the global per-socket limiter (60 events/10 s)
+  plus a dedicated per-socket, per-project relay cap (one typing.started per 3 s). Abusive floods are dropped, not queued.
+- A typing event is only relayed to a room the socket already joined (the join is what proved access), so a client cannot
+  inject typing into a project it cannot see; the attempt is refused with FORBIDDEN. Typing is never echoed to its sender.
+- Presence rosters carry only { userId, name } and are emitted solely inside the owning project room - never to a
+  workspace or another user's personal room.
+
+## Deployment hardening (Phase 15 + 17)
+- Task-write endpoints share a per-user rate limiter (keyed by the authenticated id, never a bare IP, so IPv6 clients
+  are not collapsed into one bucket). Skipped automatically under NODE_ENV=test.
+- `TRUST_PROXY` (env) sets Express's `trust proxy` to the number of reverse-proxy hops, so req.ip - and therefore any
+  IP-based limiting - sees the real client behind a proxy. It defaults to unset (trust nothing), because trusting proxy
+  headers on a directly-exposed app would let a client spoof its own IP.

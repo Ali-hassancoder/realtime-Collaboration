@@ -41,3 +41,14 @@ Flow: a write that concerns someone else (task assigned, comment on their task, 
 Client: features/notifications (NotificationBell in the header; infinite inbox cache keyed ['notifications']).
       Clicking an entry marks it read and navigates to the project; task entries deep-link with ?task=<id>,
       which opens the task dialog straight away (TaskBoard reads the query parameter).
+
+## Presence and typing (Phase 12)
+sockets/presence.js      in-memory roster per project (userId -> live sockets); rebuilt from room joins, never stored
+sockets/typingevents.js  relays client typing.started/stopped to the project room, excluding the sender
+                         (roomhandler.js registers/clears presence on project join/leave; index.js clears on disconnect
+                          and closes a project's roster when the project/workspace is deleted via realtime.onRoomClosed)
+Flow: socket joins project room -> presence.addPresence broadcasts the full roster to the room -> a member types ->
+      client emits typing.started -> server throttles and relays it to everyone else. No REST, no database: both are
+      transient and live only while sockets are connected.
+Client: features/presence (usePresence/useTyping/useTypingSender) rendered in features/chat (ProjectChat shows an
+      online avatar stack and a "<name> is typing" line). State lives in the components, not the query cache.

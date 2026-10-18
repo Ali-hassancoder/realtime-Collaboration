@@ -8,6 +8,9 @@ const schema = z.object({
   JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET must be at least 32 characters'),
   ACCESS_TOKEN_MINUTES: z.coerce.number().int().positive().default(15),
   REFRESH_TOKEN_DAYS: z.coerce.number().int().positive().default(7),
+  // Set to the number of reverse-proxy hops in front of the API (e.g. 1 on Render/Fly) so rate
+  // limiting and req.ip see the real client. Empty leaves Express at its default (trust none).
+  TRUST_PROXY: z.string().default(''),
 });
 
 const result = schema.safeParse(process.env);

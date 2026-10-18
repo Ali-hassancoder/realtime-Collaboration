@@ -215,3 +215,23 @@ Decision: Leaving or being removed from a workspace deletes that user's notifica
 Why: A notification is a pointer to something the user can act on; after their access or the target is gone the pointer is dead, and dead inbox rows would accumulate forever without any read path that can resolve them.
 Alternative: Keep history rows and filter them at read time.
 Rejected because: The filter would need a live access check per row on every inbox page.
+
+Decision: Presence is an in-memory roster derived from room membership, broadcast as the full list on every change, and never persisted.
+Why: "Who is here" is only meaningful while sockets are live; the join/leave/disconnect events already carry the transitions, so a per-project Map is the whole store and a full roster makes a dropped event self-correcting on the next change.
+Alternative: Persist presence (last-seen timestamps) and expose it over REST, or send join/leave deltas.
+Rejected because: Stored presence is stale the moment a socket drops without a clean disconnect, and deltas desynchronise after any missed event with no baseline to recover from.
+
+Decision: Typing is relayed server-side with its own throttle and is never echoed to the sender; a missed typing.stopped is cleared by a client-side timeout.
+Why: Typing is the one high-frequency, low-value event, so a per-socket per-project relay cap (on top of the global limiter) bounds the flood, and self-expiring indicators mean correctness never depends on a stop event arriving (a closed tab sends none).
+Alternative: Let clients broadcast typing peer-to-peer, or persist a typing flag.
+Rejected because: There is no peer-to-peer channel and a persisted flag would need TTL cleanup for a blip that lasts seconds.
+
+Decision: A typing event is only accepted from a socket already in the target project room, and presence/typing never leave that room.
+Why: The room join is where access was already authorised, so membership is the check - a client cannot inject typing into a project it cannot see, and transient presence data is scoped exactly like the live content it sits beside.
+Alternative: Re-authorise the projectId against the database on every typing event.
+Rejected because: It adds a DB round-trip per keystroke to re-derive what joining the room already proved.
+
+Decision: Presence and typing add no REST endpoints and no socket-to-server write path beyond the two throttled typing events; REST still owns all durable state.
+Why: They are transient signals with nothing to create, list or edit, so routing them through the same REST-plus-events model as tasks would only invent storage for data that must not outlive the connection.
+Alternative: Model presence as a document updated over REST.
+Rejected because: It persists and exposes state that is wrong the instant a client disconnects uncleanly.

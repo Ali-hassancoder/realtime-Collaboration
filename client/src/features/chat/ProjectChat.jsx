@@ -2,9 +2,77 @@ import { useEffect, useRef, useState } from 'react';
 import { fullTime, timeAgo } from '../../lib/format';
 import { hasPermission } from '../../lib/permissions';
 import { useAuth } from '../auth/useAuth';
+import { usePresence, useTyping, useTypingSender } from '../presence/hooks';
 import { useCreateMessage, useDeleteMessage, useMessageEvents, useMessages, useUpdateMessage } from '../messages/hooks';
 
 const actionLink = 'text-xs font-medium transition-colors hover:underline';
+
+// Phase 12 presence: a compact stack of who is viewing this project, plus a typing line. Both are
+// driven purely by socket events (usePresence/useTyping), so they appear and vanish live.
+const AVATAR_GRADIENTS = [
+  'from-violet-500 to-fuchsia-500',
+  'from-sky-500 to-cyan-500',
+  'from-emerald-500 to-teal-500',
+  'from-amber-500 to-orange-500',
+  'from-rose-500 to-pink-500',
+];
+const initials = (name) =>
+  (name ?? '?')
+    .split(' ')
+    .map((word) => word[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
+
+function PresenceStack({ online }) {
+  if (online.length === 0) return null;
+  const shown = online.slice(0, 4);
+  const extra = online.length - shown.length;
+  return (
+    <div
+      className="flex items-center gap-2"
+      title={online.map((o) => o.name).join(', ')}
+      aria-label={`${online.length} people online in this project`}
+    >
+      <div className="flex -space-x-2">
+        {shown.map((person, i) => (
+          <span
+            key={person.userId}
+            className={`inline-flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-r text-[10px] font-bold text-white ring-2 ring-white ${AVATAR_GRADIENTS[i % AVATAR_GRADIENTS.length]}`}
+          >
+            {initials(person.name)}
+          </span>
+        ))}
+        {extra > 0 && (
+          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-slate-200 text-[10px] font-bold text-slate-600 ring-2 ring-white">
+            +{extra}
+          </span>
+        )}
+      </div>
+      <span className="text-xs font-medium text-slate-500">{online.length} online</span>
+    </div>
+  );
+}
+
+function TypingIndicator({ typists }) {
+  if (typists.length === 0) return null;
+  const label =
+    typists.length === 1
+      ? `${typists[0].name} is typing`
+      : typists.length === 2
+        ? `${typists.map((t) => t.name).join(' and ')} are typing`
+        : 'Several people are typing';
+  return (
+    <p role="status" className="mb-1 flex items-center gap-1.5 text-xs text-slate-500">
+      <span>{label}</span>
+      <span className="inline-flex gap-0.5" aria-hidden="true">
+        <span className="h-1 w-1 animate-bounce rounded-full bg-violet-400" />
+        <span className="h-1 w-1 animate-bounce rounded-full bg-violet-400 [animation-delay:120ms]" />
+        <span className="h-1 w-1 animate-bounce rounded-full bg-violet-400 [animation-delay:240ms]" />
+      </span>
+    </p>
+  );
+}
 
 function MessageBubble({ message, workspace, project, currentUserId, archived, onNotice }) {
   const update = useUpdateMessage(workspace.id, project.id);
@@ -116,6 +184,7 @@ function MessageBubble({ message, workspace, project, currentUserId, archived, o
 
 function ChatComposer({ workspace, project, archived, onNotice }) {
   const create = useCreateMessage(workspace.id, project.id);
+  const typing = useTypingSender(project.id);
   const [body, setBody] = useState('');
 
   if (archived) {
@@ -134,6 +203,7 @@ function ChatComposer({ workspace, project, archived, onNotice }) {
     try {
       await create.mutateAsync({ workspaceId: workspace.id, projectId: project.id, body: text });
       setBody('');
+      typing.stop();
     } catch (err) {
       onNotice({ ok: false, text: err.message });
     }
@@ -149,7 +219,11 @@ function ChatComposer({ workspace, project, archived, onNotice }) {
     >
       <textarea
         value={body}
-        onChange={(e) => setBody(e.target.value)}
+        onChange={(e) => {
+          setBody(e.target.value);
+          if (e.target.value.trim()) typing.notify();
+          else typing.stop();
+        }}
         onKeyDown={(e) => {
           // Enter sends; Shift+Enter writes a new line
           if (e.key === 'Enter' && !e.shiftKey) {
@@ -180,6 +254,8 @@ export default function ProjectChat({ workspace, project }) {
   const { user } = useAuth();
   const query = useMessages(workspace.id, project.id);
   useMessageEvents(workspace.id, project.id);
+  const online = usePresence(project.id);
+  const typists = useTyping(project.id, user?.id);
   const [notice, setNotice] = useState(null);
   const listRef = useRef(null);
 
@@ -201,16 +277,19 @@ export default function ProjectChat({ workspace, project }) {
         <h2 className="text-lg font-semibold">
           <span className="text-gradient">Project chat</span>
         </h2>
-        {query.hasNextPage && (
-          <button
-            type="button"
-            onClick={() => query.fetchNextPage()}
-            disabled={query.isFetchingNextPage}
-            className={`${actionLink} text-violet-600 hover:text-fuchsia-600`}
-          >
-            {query.isFetchingNextPage ? 'Loading...' : 'Load older'}
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          <PresenceStack online={online} />
+          {query.hasNextPage && (
+            <button
+              type="button"
+              onClick={() => query.fetchNextPage()}
+              disabled={query.isFetchingNextPage}
+              className={`${actionLink} text-violet-600 hover:text-fuchsia-600`}
+            >
+              {query.isFetchingNextPage ? 'Loading...' : 'Load older'}
+            </button>
+          )}
+        </div>
       </div>
 
       {notice && (
@@ -251,6 +330,7 @@ export default function ProjectChat({ workspace, project }) {
       </div>
 
       <div className="mt-3">
+        <TypingIndicator typists={typists} />
         <ChatComposer workspace={workspace} project={project} archived={archived} onNotice={setNotice} />
       </div>
     </section>

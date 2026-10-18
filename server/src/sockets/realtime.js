@@ -17,6 +17,36 @@ export function emitToRoom(room, event, payload) {
   io.to(room).emit(event, payload);
 }
 
+// Targeted single-socket delivery (a joining client's first presence roster).
+export function emitToSocket(socketId, event, payload) {
+  if (!io) return;
+  io.to(socketId).emit(event, payload);
+}
+
+// Broadcast to a room minus one socket (typing relays exclude the sender).
+export function emitToRoomExcept(room, exceptSocketId, event, payload) {
+  if (!io) return;
+  io.to(room).except(exceptSocketId).emit(event, payload);
+}
+
+// Presence (Phase 12) registers a cleanup callback here so that when a project or workspace is
+// closed its in-memory roster is dropped. Kept as a hook list to avoid a realtime <-> presence
+// import cycle: presence imports realtime, never the other way around.
+const roomCloseHandlers = new Set();
+export const onRoomClosed = (fn) => {
+  roomCloseHandlers.add(fn);
+  return () => roomCloseHandlers.delete(fn);
+};
+const notifyRoomClosed = (projectId) => {
+  for (const fn of roomCloseHandlers) {
+    try {
+      fn(projectId);
+    } catch (err) {
+      logger.error({ err }, 'Room-close handler failed');
+    }
+  }
+};
+
 // Safety cap on how many projects one workspace revocation will scan
 const MAX_PROJECTS_SCANNED = 5000;
 
@@ -60,6 +90,7 @@ export function closeProject(workspaceId, projectId) {
   const room = projectRoom(String(projectId));
   io.in(room).emit('access.changed', { workspaceId: String(workspaceId) });
   io.in(room).socketsLeave(room);
+  notifyRoomClosed(String(projectId));
 }
 
 // Deleting a workspace removes its projects, so the room list and member list are captured first.
@@ -69,9 +100,11 @@ export async function beginWorkspaceClose(workspaceId) {
   const wid = String(workspaceId);
 
   let rooms = [workspaceRoom(wid)];
+  let projectIds = [];
   let memberRooms = [];
   try {
-    rooms = [...rooms, ...(await projectIdsOf(wid)).map((id) => projectRoom(id))];
+    projectIds = await projectIdsOf(wid);
+    rooms = [...rooms, ...projectIds.map((id) => projectRoom(id))];
     const members = await WorkspaceMember.find({ workspaceId: wid }).select('userId').limit(1000).lean();
     memberRooms = members.map((m) => userRoom(m.userId.toString()));
   } catch (err) {
@@ -82,5 +115,6 @@ export async function beginWorkspaceClose(workspaceId) {
     // An empty room list would target every connected socket, so it is guarded
     if (memberRooms.length > 0) io.in(memberRooms).emit('access.changed', { workspaceId: wid });
     io.in(rooms).socketsLeave(rooms);
+    for (const id of projectIds) notifyRoomClosed(id);
   };
 }

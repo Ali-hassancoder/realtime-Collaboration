@@ -26,7 +26,7 @@ Events from one socket are processed in order, one at a time.
 |------------------|----------------------------------------|-------------------------------------------------|
 | user:{userId}    | automatically on connect               | access changes and personal notifications        |
 | workspace:{id}   | room.join, workspace member            | workspace-level updates (later phases)          |
-| project:{id}     | room.join, can access the project      | task.*, comment.*, message.*, activity.created  |
+| project:{id}     | room.join, can access the project      | task.*, comment.*, message.*, activity.created, presence.updated, typing.*  |
 At most 50 workspace/project rooms per socket. Room names are built only in server/src/sockets/rooms.js.
 
 ## Client -> server
@@ -44,6 +44,15 @@ At most 50 workspace/project rooms per socket. Room names are built only in serv
 - Payload: `{ type: 'workspace', workspaceId }` or `{ type: 'project', projectId }`. No authorization needed.
 - Persisted: no. The personal user room cannot be left.
 - Client behavior: leave when the page closes.
+
+### typing.started / typing.stopped
+- Sender: authenticated client. Receiver: server (acknowledged). Receiver of the relay: the rest of the project room.
+- Payload: `{ projectId }` (24-hex ObjectId). The server relays to `project:{projectId}` excluding the sender.
+- Authorization: the socket must already be in that project room (a join is what proved access); otherwise FORBIDDEN.
+- Throttling: the server relays at most one typing.started per socket per project per 3 s. Every event is still
+  acknowledged `{ ok: true }` so the client never has to guess. typing.stopped is never throttled.
+- Persisted: no. Never touches the database (docs/ENGINEERING_DECISIONS.md).
+- Client behavior: emit typing.started as the composer is typed in (self-throttled), typing.stopped on send/clear/leave.
 
 ## Server -> client
 
@@ -103,5 +112,20 @@ At most 50 workspace/project rooms per socket. Room names are built only in serv
 - Client behavior: prepended to the cached inbox and the unread badge bumps. There is no actor filter:
   every event that arrives belongs to this user (docs/ENGINEERING_DECISIONS.md).
 
+### presence.updated
+- Sender: server, whenever the set of users viewing a project changes (a socket joins or leaves the
+  project room, or disconnects). Receiver: every socket in project:{projectId}, including the joiner.
+- Payload: `{ projectId, online }` where online is the FULL roster `[{ userId, name }]`, not a delta -
+  the client replaces its list wholesale, so a missed event is corrected by the next one.
+- Persisted: no. Presence is in-memory only and rebuilt from room joins; it is deliberately never stored.
+- Client behavior: replace the cached roster for that project and render who is online.
+
+### typing.started / typing.stopped
+- Sender: server, relaying another member's typing event. Receiver: every socket in project:{projectId}
+  except the one that originated it (the typist never sees its own indicator).
+- Payload: typing.started carries `{ projectId, user: { id, name } }`; typing.stopped carries `{ projectId, userId }`.
+- Persisted: no. A blip with no history: if a stopped event is missed the client's own timeout clears it.
+- Client behavior: show "<name> is typing" and let it expire after a few seconds unless refreshed by another event.
+
 ## Planned (not implemented yet)
-presence.updated, typing.started, typing.stopped (Phase 12, transient and never persisted).
+None. Every designed socket event is implemented; presence and typing (Phase 12) are transient and never persisted.

@@ -6,6 +6,8 @@ import { authenticateSocket, handshakeError } from './auth.js';
 import { createEventLimiter } from './limits.js';
 import { setIo } from './realtime.js';
 import { joinRoom, leaveRoom } from './roomhandler.js';
+import { clearPresence } from './presence.js';
+import { typingStarted, typingStopped } from './typingevents.js';
 import { userRoom } from './rooms.js';
 
 const MAX_MESSAGE_BYTES = 10 * 1024; // same as the REST body limit
@@ -96,9 +98,12 @@ export function initSocket(httpServer) {
 
     handle('room.join', joinRoom);
     handle('room.leave', leaveRoom);
+    handle('typing.started', typingStarted);
+    handle('typing.stopped', typingStopped);
 
     socket.on('disconnect', (reason) => {
       clearTimeout(expiryTimer);
+      clearPresence(socket);
       const remaining = (openSockets.get(userId) ?? 1) - 1;
       if (remaining <= 0) openSockets.delete(userId);
       else openSockets.set(userId, remaining);

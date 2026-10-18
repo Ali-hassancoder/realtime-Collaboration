@@ -71,3 +71,9 @@ function emitWithAck(event, payload, timeoutMs = 5000) {
 // room: { type: 'workspace', workspaceId } or { type: 'project', workspaceId, projectId }
 export const joinRoom = (room) => emitWithAck('room.join', room);
 export const leaveRoom = (room) => emitWithAck('room.leave', room);
+
+// Typing (Phase 12) is fire-and-forget: a blip needs no acknowledgement, and waiting for one would
+// only add latency. The server throttles and relays it to the rest of the project room.
+export const sendTyping = (projectId, typing) => {
+  if (socket.connected) socket.emit(typing ? 'typing.started' : 'typing.stopped', { projectId });
+};
