@@ -1,10 +1,9 @@
 # Dependencies
 node_modules/
 
-# Environment files (examples are committed on purpose)
+# Environment files
 .env
 .env.*
-!.env.example
 
 # Build output
 dist/
