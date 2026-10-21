@@ -9,11 +9,13 @@ Naming: `<resource>.<action>` (e.g. task.updated, message.created). Do not inven
 - Origin: if an Origin header is present it must equal the origin of CLIENT_URL (blocks cross-site WebSocket hijacking).
 - Lifetime: the server disconnects the socket when its access token expires (the same window REST enforces).
   The client refreshes its session via REST and reconnects (at most 3 attempts in a row).
-- Limits: 10 KB per message; 10 connections per user (per server process); 60 events per 10 s per socket.
-  Over the limit an event gets RATE_LIMITED; past 3x the limit the socket is disconnected.
+- Limits: 256 KB per message (raised in Phase 13 to accommodate Yjs sync payloads for the Project Notes doc),
+  128 KB per doc.update payload, 4 KB per doc.subscribe stateVector; 10 connections per user (per server process);
+  60 events per 10 s per socket. Over the limit an event gets RATE_LIMITED; past 3x the limit the socket is disconnected.
+  Per IP, at most 30 handshakes per minute (Phase 15); per user, at most 300 doc.update events per minute (Phase 15).
 
-connect_error: err.message plus err.data.code in { UNAUTHENTICATED, TOKEN_INVALID, TOO_MANY_CONNECTIONS, INTERNAL_SERVER_ERROR }.
-Auth codes mean "refresh the session, then reconnect once".
+connect_error: err.message plus err.data.code in { UNAUTHENTICATED, TOKEN_INVALID, TOO_MANY_CONNECTIONS, RATE_LIMITED, INTERNAL_SERVER_ERROR }.
+Auth codes mean "refresh the session, then reconnect once"; RATE_LIMITED means the per-IP handshake cap was hit - back off.
 
 ## Acknowledgements
 Every client-to-server event takes an ack callback and is answered with
@@ -26,7 +28,7 @@ Events from one socket are processed in order, one at a time.
 |------------------|----------------------------------------|-------------------------------------------------|
 | user:{userId}    | automatically on connect               | access changes and personal notifications        |
 | workspace:{id}   | room.join, workspace member            | workspace-level updates (later phases)          |
-| project:{id}     | room.join, can access the project      | task.*, comment.*, message.*, activity.created, presence.updated, typing.*  |
+| project:{id}     | room.join, can access the project      | task.*, comment.*, message.*, activity.created, presence.updated, typing.*, doc.update, doc.subscribers  |
 At most 50 workspace/project rooms per socket. Room names are built only in server/src/sockets/rooms.js.
 
 ## Client -> server
@@ -53,6 +55,44 @@ At most 50 workspace/project rooms per socket. Room names are built only in serv
   acknowledged `{ ok: true }` so the client never has to guess. typing.stopped is never throttled.
 - Persisted: no. Never touches the database (docs/ENGINEERING_DECISIONS.md).
 - Client behavior: emit typing.started as the composer is typed in (self-throttled), typing.stopped on send/clear/leave.
+
+### doc.subscribe
+- Sender: authenticated client. Receiver: server (acknowledged).
+- Payload: `{ projectId, stateVector? }` where `stateVector` is a Uint8Array (Yjs-encoded state vector,
+  at most 4 KB). Missing or empty means "give me everything"; a client re-subscribing after reconnect sends its
+  current vector so the reply is only the ops it missed.
+- Authorization: the socket must already be in that project room AND the caller must satisfy `document:read`
+  against the current workspace/project membership (checked against the DB every request). Not in room -> FORBIDDEN;
+  not a member -> PROJECT_NOT_FOUND.
+- Persisted: no. The server registers the socket as a subscriber (roster deduplicated by user id) and hydrates
+  the in-memory Y.Doc from the stored snapshot if this is the first subscribe on the project.
+- Response: `{ ok: true, data: { update: Uint8Array, subscribers: [{ id, name }] } }` where `update` is the Yjs
+  binary delta the client is missing (empty if already up to date).
+- Client behavior: apply the returned update to the local Y.Doc, then emit `doc.update` on every local transaction
+  whose origin is not `remote`/`restore`. Re-subscribe on every socket `connect` after a reconnect.
+
+### doc.update
+- Sender: authenticated client. Receiver: server (acknowledged). Server rebroadcasts to the rest of the room.
+- Payload: `{ projectId, update }` where `update` is a Uint8Array of at most 128 KB. Anything larger -> VALIDATION_ERROR.
+- Authorization: identical to doc.subscribe (in-room + `document:edit`). Guests hold `document:read` but not
+  `document:edit` -> FORBIDDEN.
+- Rate limit: at most 300 doc.update events per user per minute (Phase 15, per user rather than per socket) ->
+  RATE_LIMITED. Excess updates are dropped, not queued; Yjs converges on the next accepted transaction.
+- Persisted: the raw bytes are applied to the in-memory Y.Doc; MongoDB is written on a 4-second debounce
+  (SAVE_DEBOUNCE_MS in document.service.js), and a final best-effort flush happens when the doc is evicted
+  (project deleted / last subscriber gone).
+- Server -> room: rebroadcast `{ projectId, update }` on `doc.update` to every socket in `project:{projectId}`
+  EXCEPT the sender (the sender's local Y.Doc already has the ops).
+- Client behavior: apply incoming `doc.update` bytes with origin=`remote` so the local provider does not echo
+  them back to the server.
+
+### doc.unsubscribe
+- Sender: authenticated client (usually fired from a component unmount). Receiver: server (acknowledged).
+- Payload: `{ projectId }`. No authorization needed - the socket's own subscription list is the boundary.
+- Persisted: no. Removes the socket from the subscriber roster; if the roster actually changed the server
+  broadcasts `doc.subscribers` to the whole room (including the leaver, so its own UI reflects the change).
+- Client behavior: emit on unmount of the Project Notes view. The server also cleans up automatically when the
+  socket disconnects, so a missed unsubscribe only delays the roster update by one tick.
 
 ## Server -> client
 
@@ -127,5 +167,24 @@ At most 50 workspace/project rooms per socket. Room names are built only in serv
 - Persisted: no. A blip with no history: if a stopped event is missed the client's own timeout clears it.
 - Client behavior: show "<name> is typing" and let it expire after a few seconds unless refreshed by another event.
 
+### doc.update
+- Sender: server, after a client's `doc.update` payload has been validated and applied to the shared Y.Doc.
+  Receiver: every socket in project:{projectId} EXCEPT the sender's own socket.
+- Payload: `{ projectId, update }` where `update` is the same Uint8Array the sender pushed (byte-for-byte,
+  no re-encoding). Every receiving client applies it to its local Y.Doc with origin=`remote`.
+- Persisted: the write already happened on the sender's turn (debounced to MongoDB); this rebroadcast is purely
+  fan-out. A missed event is recovered on the next `doc.subscribe` (state-vector diff) or a client reload.
+
+### doc.subscribers
+- Sender: server, whenever the Project Notes editor roster changes (a `doc.subscribe` or `doc.unsubscribe`,
+  or a socket that was subscribed disconnecting).
+- Receiver: every socket in project:{projectId}. On subscribe the joining socket is EXCLUDED (its own ack already
+  carries the same roster). On unsubscribe everyone INCLUDING the leaver receives it, so its UI reflects removal.
+- Payload: `{ projectId, subscribers: [{ id, name }] }` - the FULL roster, not a delta. Deduplicated by user id
+  (one person on two tabs counts once).
+- Persisted: no. In-memory only. A missed event is corrected by the next roster change or a fresh subscribe.
+
 ## Planned (not implemented yet)
-None. Every designed socket event is implemented; presence and typing (Phase 12) are transient and never persisted.
+None. Every designed socket event is implemented; presence and typing (Phase 12) and the Project Notes
+doc channel (Phase 13) are the current surface. Doc *content* is persisted (MongoDB Yjs snapshot per project);
+doc *rosters* are transient and rebuilt from live subscriptions.

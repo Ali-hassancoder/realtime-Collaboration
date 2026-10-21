@@ -6,6 +6,7 @@ import LiveBadge from '../features/realtime/LiveBadge';
 import TaskBoard from '../features/tasks/TaskBoard';
 import ProjectChat from '../features/chat/ProjectChat';
 import ActivityFeed from '../features/activity/ActivityFeed';
+import ProjectNotes from '../features/documents/ProjectNotes';
 import ProjectTeam from '../features/projects/ProjectTeam';
 import ProjectSettings from '../features/projects/ProjectSettings';
 import FullPageSpinner from '../components/FullPageSpinner';
@@ -37,13 +38,13 @@ export default function ProjectPage() {
   const project = projectQuery.data;
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <div>
         <Link to={`/workspaces/${workspace.id}`} className="text-sm font-medium text-violet-600 transition-colors hover:text-fuchsia-600 hover:underline">
           &larr; {workspace.name}
         </Link>
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          <h1 className="text-3xl font-extrabold">
+          <h1 className="text-2xl font-extrabold sm:text-3xl">
             <span className="text-gradient">{project.name}</span>
           </h1>
           {project.status === 'archived' && (
@@ -58,8 +59,12 @@ export default function ProjectPage() {
 
       <TaskBoard workspace={workspace} project={project} />
 
+      {/* Phase 13: shared Project Notes - Yjs-backed collaborative plain text.
+          Waits for the room to be joined, because doc.subscribe re-checks socket membership. */}
+      <ProjectNotes workspace={workspace} project={project} ready={room.status === 'joined'} />
+
       {/* Phase 9 + 10: live chat and the project activity feed */}
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
         <ProjectChat workspace={workspace} project={project} />
         <ActivityFeed workspace={workspace} project={project} />
       </div>

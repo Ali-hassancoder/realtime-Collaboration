@@ -1,0 +1,8 @@
+node_modules
+node_module
+.tmp-*
+.env
+.env.*
+tests
+Dockerfile
+.dockerignore

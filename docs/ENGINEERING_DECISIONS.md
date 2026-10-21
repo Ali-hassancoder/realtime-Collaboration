@@ -235,3 +235,58 @@ Decision: Presence and typing add no REST endpoints and no socket-to-server writ
 Why: They are transient signals with nothing to create, list or edit, so routing them through the same REST-plus-events model as tasks would only invent storage for data that must not outlive the connection.
 Alternative: Model presence as a document updated over REST.
 Rejected because: It persists and exposes state that is wrong the instant a client disconnects uncleanly.
+
+Decision: Project Notes use Yjs as the CRDT engine (yjs@13), and the server holds one live Y.Doc per project while anyone is subscribed. (Phase 13)
+Why: The prompt forbids inventing a synchronization system (§30), Yjs has a proven text CRDT, and holding the doc in memory makes the update path O(1) per keystroke with no read-modify-write contention. Snapshots are opaque binary buffers (`encodeStateAsUpdate`) persisted as a MongoDB `Buffer`; the server never interprets them.
+Alternative: Operational transform on the plain text, or store a per-edit log in MongoDB.
+Rejected because: OT is a synchronisation system in disguise and would need the same correctness work Yjs already provides; a per-edit log needs periodic compaction and cannot rebuild state as cheaply as one `applyUpdate` on the snapshot.
+
+Decision: The Notes editor is a plain `<textarea>`, not a rich-text editor. (Phase 13)
+Why: It delivers the CRDT sync story (multi-cursor merge, offline catchup, guest read-only) with the smallest surface: no Tiptap/ProseMirror, no schema for formatting, no attachment/annotation dependency, and one shared Y.Text key that survives a client reload. Concurrency correctness does not depend on the editor being plain text.
+Alternative: A rich-text editor behind the same provider.
+Rejected because: It is a much bigger UI dependency and pulls in the Attachment/Conversation models that Phase 13's prompt note (§2) allows to be deferred. Revisit as its own phase if a formatted doc is required.
+
+Decision: A custom Socket.YjsProvider in the client instead of the public `y-socket-io` package. (Phase 13)
+Why: Our protocol is three client->server and two server->client events; `y-socket-io` bundles y-protocols sync/awareness machinery the server does not run, and it assumes a raw WebSocket channel rather than the authenticated Socket.IO connection the app already manages. The custom provider is ~140 lines and cannot drift from the server's contract because both sides live in the same repo.
+Alternative: Add y-protocols sync handlers on the server to speak the generic protocol.
+Rejected because: It is a larger attack surface (more message shapes to validate), duplicates state-vector logic the doc.subscribe ack already returns, and buys nothing the tests need.
+
+Decision: Debounced persistence (4 s window) with a best-effort flush on eviction. (Phase 13)
+Why: Typing bursts collapse into a single MongoDB write; a keystroke-rate write path would serialise every user behind a document lock. On close (project deleted or last subscriber gone) the server flushes any pending delta so nothing is silently lost, and a corrupt snapshot is self-healing (hydrate fails -> start empty -> next save overwrites).
+Alternative: Write on every `doc.update`.
+Rejected because: At 5-10 keystrokes/sec per user across a busy project the write amplification is measurable, and Yjs snapshots are already idempotent so a longer window cannot desync clients.
+
+Decision: Every `doc.subscribe` and every `doc.update` re-checks the caller's database access, and requires the socket to already be in the project room. (Phase 13)
+Why: Room membership alone is a snapshot from join time; a role change or a team removal after joining would otherwise let a stale socket keep writing. The re-check is one WorkspaceMember + optional ProjectMember lookup, cheap relative to the Yjs apply, and it makes the doc channel obey the same rule as every other Phase 7-12 socket handler.
+Alternative: Trust the initial room.join and only re-check periodically.
+Rejected because: It opens a window where a removed guest can still edit; the same window has been closed for room.join, task events and every other sensitive path.
+
+Decision: Guests get `document:read` but not `document:edit`; the client disables the textarea and the server refuses writes anyway. (Phase 13)
+Why: Matches how comment and message read/write are split. Guests can follow a project's Notes (that is the whole point of inviting them) without being able to alter the shared doc.
+Alternative: Let guests edit their own project's Notes since they can already comment.
+Rejected because: Notes are the closest thing the app has to an official project document, and giving every guest write access widens blast radius for very little product value.
+
+Decision: `MAX_MESSAGE_BYTES` raised from 10 KB to 256 KB globally, with tighter per-event caps on doc payloads (128 KB update, 4 KB state vector). (Phase 13)
+Why: A Yjs initial sync from a full-text doc can exceed 10 KB, and the alternative (chunking sync inside the provider) duplicates work Yjs already does. The per-event caps in documentevents.js keep the *doc* channel's real ceiling at 128 KB; the global 256 KB cap only bounds the wire, so an abusive payload is rejected before it reaches a handler.
+Alternative: Chunk updates, or leave the global cap at 10 KB.
+Rejected because: Chunking means a second framing protocol on top of Yjs bytes for no gain; 10 KB makes realistic Notes docs unsubscribable.
+
+Decision: Subscriber rosters are stored per project in-memory, deduplicated by user id, and broadcast as the FULL roster on every change. (Phase 13)
+Why: Same reasoning as presence (Phase 12): a missed event is corrected by the next one, no reassembly state lives anywhere but in the server's Set, and dedup by user id means one person on two tabs is one editor in the UI.
+Alternative: Send deltas, or track a separate Awareness per client.
+Rejected because: Deltas desynchronise on drop; Awareness is what y-protocols provides and we deliberately did not take that dependency.
+
+Decision: Per-IP socket handshake limit (30/min, fixed window, in-process) runs before authentication; per-user doc.update cap (300/min) runs before the DB re-check. (Phase 15)
+Why: The handshake guard protects the expensive part of connecting (JWT verify + User lookup) from unauthenticated floods, so it must sit ahead of authenticateSocket; the doc cap protects the shared Notes doc from a scripted client that could otherwise spend all 10 sockets x 60 events/10 s of the global per-socket budget on Yjs updates. Both are plain fixed windows because a transient over-count cannot hurt: rejected handshakes retry on the client's normal reconnect, rejected doc updates resync via Yjs.
+Alternative: express-rate-limit style sliding windows, or a Redis-backed limiter.
+Rejected because: Sliding windows need per-key history for little benefit at these generous caps; Redis duplicates the state the socket adapter would already own when horizontal scaling happens (same deferral as per-process connection counts).
+
+Decision: Email verification and password reset use single-use hashed AuthTokens, forgot-password is non-revealing, a reset revokes every session and also verifies the email, and verification is enforced softly (banner + resend, no feature lock). (Phase 16)
+Why: The token design copies the proven Session pattern (SHA-256 at rest, findOneAndDelete redemption, TTL cleanup), so a DB leak cannot forge links and a link cannot be replayed. A reset is treated as account recovery: sessions and outstanding tokens die with it, and receiving the link at that address proves mailbox control, which is exactly what verification means. Soft enforcement keeps the smallest coherent version: hard-gating every route would punish users whose mail provider is slow or whose SMTP is not configured (development prints emails to the console), while the banner plus a 5/hour resend keeps the nudge persistent.
+Alternative: Block logins until verified, or store tokens with a usedAt flag instead of deleting.
+Rejected because: Hard gating breaks the dev/no-SMTP workflow and turns a delivery failure into a lockout; a usedAt flag keeps a growing table of dead rows the TTL index already removes, and findOneAndDelete is atomic where a check-then-set is a race.
+
+Decision: Production safety is enforced at boot (runtimeGuard refuses to start with a localhost/http CLIENT_URL, placeholder secret, or half-configured SMTP), shutdown is drain-then-force with an 8 s unref'd deadline, crashes exit 1 via process-level traps, and the backend ships as a non-root Docker image configured purely by env. (Phase 17)
+Why: A deploy that is misconfigured in a way that only matters in production (dev-valid shapes like http://localhost:5173) must fail in its own boot log, not silently serve broken CORS or forgeable tokens; container platforms SIGKILL on their own timer, so graceful shutdown has to finish on ours or lose the race; keeping the guard a separate pure function from env.js means the shape checks stay declarative and the prod-only rules are unit-testable without booting anything.
+Alternative: Validate everything in the env.js zod schema; rely on Node defaults for rejections and shutdown; document deployment instead of shipping a Dockerfile.
+Rejected because: zod cannot express "only wrong in production" without breaking the dev workflow it protects; Node's default crash-on-rejection prints an unparsable trace and an unhandled close() simply hangs on keep-alive sockets; a README-only deploy guide guarantees someone eventually runs a serverless host with Socket.IO.

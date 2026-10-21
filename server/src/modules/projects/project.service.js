@@ -8,6 +8,7 @@ import { Comment } from '../comment/comment.model.js';
 import { Message } from '../message/message.model.js';
 import { Activity } from '../activity/activity.model.js';
 import { Notification } from '../notification/notification.model.js';
+import { Document } from '../documents/document.model.js';
 import { unassignUser } from '../task/task.cleanup.js';
 import { closeProject, syncUserAccess } from '../../sockets/realtime.js';
 
@@ -73,6 +74,7 @@ export async function deleteProject(project) {
     Message.deleteMany({ projectId: project._id }),
     Activity.deleteMany({ projectId: project._id }),
     Notification.deleteMany({ projectId: project._id }),
+    Document.deleteMany({ projectId: project._id }),
   ]);
   closeProject(project.workspaceId, project._id);
 }

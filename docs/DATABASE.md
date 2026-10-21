@@ -1,10 +1,16 @@
 # Database
 
 ## User
-name, email (unique), passwordHash (select:false). Timestamps.
+name, email (unique), passwordHash (select:false), emailVerified (bool, default false), emailVerifiedAt
+(nullable, never serialized). Timestamps.
 
 ## Session
 userId, tokenHash (unique), expiresAt (TTL index), userAgent.
+
+## AuthToken (Phase 16)
+userId, tokenHash (unique, SHA-256 of a single-use email link token), purpose (email_verify|password_reset),
+expiresAt (TTL index: 24h verify, 1h reset). Redeemed by findOneAndDelete, so a token cannot be used twice;
+issuing a new token for a purpose deletes the previous ones for it.
 
 ## Workspace
 name, description, ownerId. Index: ownerId.
@@ -74,11 +80,23 @@ Indexes: (recipientId, _id desc) for the inbox; (recipientId, readAt) for unread
 (projectId), (workspaceId) for cleanup.
 Written only by the server (notify, fire-and-forget); the inbox has no write endpoint besides read marks.
 
+## Document  (Phase 13)
+workspaceId, projectId (unique - one shared Notes doc per project), snapshot (Buffer: opaque Yjs
+`encodeStateAsUpdate` bytes, never parsed by the server), lastEditorId (nullable). Timestamps.
+Indexes: unique (projectId); (workspaceId) for cascade cleanup.
+Written only via the socket doc.update path (server debounces to MongoDB every 4 s and best-effort
+flushes on eviction). There is no REST read or write endpoint: clients hydrate through doc.subscribe.
+The snapshot is self-healing: if Y.applyUpdate fails on hydrate (corrupt bytes) the server logs the
+error, starts with an empty doc, and the next successful save overwrites the bad row.
+
 ## Cascades (manual, no transactions)
 - Delete task: its comments, every feed entry and every notification that references it (the task.deleted
   feed entry is recorded afterwards and stands alone).
-- Delete project: also its tasks, comments, messages, feed entries and notifications.
-- Delete workspace: also all projects, tasks, comments, messages, feed entries and notifications.
+- Delete project: also its tasks, comments, messages, feed entries, notifications and its Document row
+  (the in-memory Y.Doc is dropped via the room-close hook).
+- Delete workspace: also all projects, tasks, comments, messages, feed entries, notifications and
+  Documents of every project in it.
 - Removed from a project team / leave or removed from a workspace: tasks assigned to that user become
-  unassigned (version bumped). Comments and messages stay (authored history belongs to the project).
+  unassigned (version bumped). Comments, messages and the Document snapshot stay (authored history belongs
+  to the project); the socket layer just removes the person from the live doc-subscribers roster.
   Leaving or being removed from a workspace also deletes that user's notifications for that workspace.

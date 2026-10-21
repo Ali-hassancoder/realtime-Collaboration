@@ -10,3 +10,9 @@ MERN + Socket.IO team collaboration app. See `docs/` for architecture and decisi
 
 ## Tests
 `cd server && npm test`
+
+## Deploy
+The SPA goes on any static host; the API needs one persistent Node process (Socket.IO). Fill in
+`server/.env.production.example` as platform env keys, or build the container: `docker build -t syncora-api ./server`.
+The server refuses to boot in production with an unsafe env combination (see `src/config/runtimeGuard.js`) and
+answers `/api/health` for platform probes. Details: `docs/ARCHITECTURE.md` (Deployment topology).

@@ -43,6 +43,11 @@ export default function LoginPage() {
           <span className="text-gradient">Log in</span>
         </h1>
         <p className="mb-6 mt-1 text-sm text-slate-500">Welcome back — pick up right where you left off.</p>
+        {location.state?.notice && (
+          <p className="animate-fade-in mb-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700 ring-1 ring-emerald-200">
+            {location.state.notice}
+          </p>
+        )}
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
           {serverError && (
             <p role="alert" className="animate-fade-in rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">
@@ -60,6 +65,11 @@ export default function LoginPage() {
           <button type="submit" disabled={isSubmitting} className="btn-gradient w-full rounded-xl px-4 py-2.5 font-semibold">
             {isSubmitting ? 'Logging in...' : 'Log in'}
           </button>
+          <p className="text-right text-sm">
+            <Link to="/forgot-password" className="font-medium text-violet-600 transition-colors hover:text-fuchsia-600 hover:underline">
+              Forgot password?
+            </Link>
+          </p>
         </form>
         <p className="mt-5 text-sm text-slate-600">
           No account?{' '}

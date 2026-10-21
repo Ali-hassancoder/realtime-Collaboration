@@ -8,6 +8,9 @@ import WorkspacePage from './pages/WorkspacePage';
 import ProjectPage from './pages/ProjectPage';
 import ProfilePage from './pages/ProfilePage';
 import AcceptInvitePage from './pages/AcceptInvitePage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
+import VerifyEmailPage from './pages/VerifyEmailPage';
 import NotFoundPage from './pages/NotFoundPage';
 import ProtectedRoute from './features/auth/ProtectedRoute';
 import GuestRoute from './features/auth/GuestRoutes';
@@ -22,7 +25,12 @@ export default function App() {
         <Route element={<GuestRoute />}>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
         </Route>
+
+        {/* Emailed verification links may be opened logged out or logged in, so no guard */}
+        <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
 
         <Route element={<ProtectedRoute />}>
           <Route path="/dashboard" element={<DashboardPage />} />

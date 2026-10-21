@@ -12,7 +12,7 @@ export default function DashboardPage() {
   return (
     <section className="space-y-6">
       <div>
-        <h1 className="text-3xl font-extrabold">
+        <h1 className="text-2xl font-extrabold sm:text-3xl">
           Welcome, <span className="text-gradient">{user.name}</span>
         </h1>
         <p className="mt-1 text-slate-600">Your workspaces</p>

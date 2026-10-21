@@ -11,6 +11,14 @@ const schema = z.object({
   // Set to the number of reverse-proxy hops in front of the API (e.g. 1 on Render/Fly) so rate
   // limiting and req.ip see the real client. Empty leaves Express at its default (trust none).
   TRUST_PROXY: z.string().default(''),
+  // Email (Phase 16: verification + password reset). All optional: without SMTP_HOST the
+  // mailer logs messages to the server console instead of sending, so development works
+  // with no mail server. Production should configure real credentials.
+  SMTP_HOST: z.string().default(''),
+  SMTP_PORT: z.coerce.number().default(587),
+  SMTP_USER: z.string().default(''),
+  SMTP_PASS: z.string().default(''),
+  MAIL_FROM: z.string().default('Syncora <no-reply@syncora.app>'),
 });
 
 const result = schema.safeParse(process.env);

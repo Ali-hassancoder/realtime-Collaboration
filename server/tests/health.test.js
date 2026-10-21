@@ -9,7 +9,9 @@ const app = createApp();
 test('GET /api/health returns success', async () => {
   const res = await request(app).get('/api/health');
   assert.equal(res.status, 200);
-  assert.deepEqual(res.body, { success: true, message: 'API is running' });
+  // uptime joined the body in Phase 17 (platform probes + deploy log diffing); it grows, so check shape
+  assert.deepEqual(res.body, { success: true, message: 'API is running', uptime: res.body.uptime });
+  assert.equal(typeof res.body.uptime, 'number');
 });
 
 test('unknown route returns consistent 404 error format', async () => {

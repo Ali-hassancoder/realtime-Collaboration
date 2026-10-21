@@ -90,7 +90,7 @@ export default function ActivityFeed({ workspace, project }) {
   const activities = query.data ? query.data.pages.flatMap((page) => page.activities) : [];
 
   return (
-    <section className="glass-card flex min-h-[24rem] flex-col rounded-2xl p-5" aria-label="Project activity">
+    <section className="glass-card flex min-h-[18rem] flex-col rounded-2xl p-4 sm:min-h-[24rem] sm:p-5" aria-label="Project activity">
       <div className="flex items-center justify-between gap-2">
         <h2 className="text-lg font-semibold">
           <span className="text-gradient">Activity</span>

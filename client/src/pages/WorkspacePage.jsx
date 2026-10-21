@@ -28,12 +28,12 @@ export default function WorkspacePage() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       <div>
         <Link to="/dashboard" className="text-sm font-medium text-violet-600 transition-colors hover:text-fuchsia-600 hover:underline">
           &larr; All workspaces
         </Link>
-        <h1 className="mt-2 text-3xl font-extrabold">
+        <h1 className="mt-2 text-2xl font-extrabold sm:text-3xl">
           <span className="text-gradient">{workspace.name}</span>
         </h1>
         <p className="mt-1 text-slate-600">{workspace.description || 'No description'}</p>

@@ -22,13 +22,24 @@ export function createApp() {
     app.set('trust proxy', Number.isInteger(hops) && hops > 0 ? hops : env.TRUST_PROXY === 'true');
   }
 
-  app.use(helmet());
+  // API-only service: it never renders HTML, so the default CSP would only reject our own
+  // error pages tooling; frameguard/noSniff still matter because browsers visit these routes.
+  // HSTS is enabled explicitly (helmet's default 180 s is too short to survive a redirect hop)
+  // and only fires on https origins, so setting it locally is harmless.
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      hsts: { maxAge: 31_536_000, includeSubDomains: true }, // 1 year
+    }),
+  );
   app.use(cors({ origin: env.CLIENT_URL, credentials: true }));
   app.use(express.json({ limit: '10kb' }));
   app.use(cookieParser());
 
+  // Platform health checks poll this; keep it dependency-free (no DB read) so a slow Atlas
+  // connection never flakes the probe. uptime/version help deploy log diffing.
   app.get('/api/health', (_req, res) => {
-    res.json({ success: true, message: 'API is running' });
+    res.json({ success: true, message: 'API is running', uptime: process.uptime() });
   });
 
   app.use('/api/auth', authRoutes);

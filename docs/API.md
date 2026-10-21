@@ -7,6 +7,14 @@ GET  /api/auth/me        (access cookie)       -> 200 {user} | 401
 Errors: VALIDATION_ERROR(400) INVALID_CREDENTIALS(401) UNAUTHENTICATED(401)
         TOKEN_INVALID(401) REFRESH_INVALID(401) EMAIL_IN_USE(409) RATE_LIMITED(429)
 
+# Email verification + password reset (Phase 16)
+POST /api/auth/verify-email    {token}          -> 200; single-use link token from the verification email
+POST /api/auth/resend-verification (auth)       -> 202; replaces the previous link; 409 if already verified
+POST /api/auth/forgot-password {email}          -> 202 always (same answer for unknown emails; no enumeration)
+POST /api/auth/reset-password  {token,password} -> 200; sets the password, verifies the email, revokes all sessions
+Errors added: VERIFY_LINK_INVALID(400) RESET_LINK_INVALID(400) EMAIL_ALREADY_VERIFIED(409)
+User payloads now include emailVerified: boolean (emailVerifiedAt is server-only).
+
         # Users
 PATCH /api/users/me            {name}                          -> {user}
 POST  /api/users/me/password   {currentPassword,newPassword}   -> 200, revokes all sessions, clears cookies
@@ -101,3 +109,13 @@ createdAt}. Types: task.assigned, comment.created (on a task you are assigned to
 invite.accepted. The inbox is personal: the only access check is authentication, and the server creates
 entries (fire-and-forget) on assignment, comment, team-add and invite-accept writes.
 Errors added: NOTIFICATION_NOT_FOUND(404 - also someone else's notification).
+
+# Project Notes (Phase 13) - no REST surface
+The collaborative Notes doc is entirely a Socket.IO channel: doc.subscribe / doc.update / doc.unsubscribe.
+See docs/SOCKET_EVENTS.md for the payload contract and docs/ARCHITECTURE.md for the Yjs flow. The server
+persists a snapshot to MongoDB on a 4-second debounce, but that column is never exposed over REST.
+
+# Deployment (Phase 17)
+GET  /api/health                    -> 200 {success, message, uptime}; dependency-free (no DB read) so
+                                        platform probes never flake on a slow Atlas connection.
+Error responses never contain stacks outside NODE_ENV=development (already true; asserted by tests).

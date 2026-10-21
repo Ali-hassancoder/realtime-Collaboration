@@ -53,3 +53,26 @@ export async function logout(req, res) {
 export function me(req, res) {
   res.json({ success: true, data: { user: req.user } });
 }
+
+export async function verifyEmail(req, res) {
+  await authService.verifyEmail(req.validated.body.token);
+  res.json({ success: true, data: null });
+}
+
+export async function resendVerification(req, res) {
+  await authService.resendVerification(req.user);
+  // 202, not 200: the meaningful outcome is the email arriving, which the API cannot confirm
+  res.status(202).json({ success: true, data: null });
+}
+
+export async function forgotPassword(req, res) {
+  await authService.forgotPassword(req.validated.body.email);
+  // Same response for known and unknown emails: no account enumeration through this endpoint
+  res.status(202).json({ success: true, data: null });
+}
+
+export async function resetPassword(req, res) {
+  const { token, password } = req.validated.body;
+  await authService.resetPassword(token, password);
+  res.json({ success: true, data: null });
+}

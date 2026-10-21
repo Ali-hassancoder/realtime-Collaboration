@@ -3,17 +3,25 @@ import { env } from '../config/env.js';
 import { AppError } from '../utils/AppError.js';
 import { logger } from '../utils/logger.js';
 import { authenticateSocket, handshakeError } from './auth.js';
-import { createEventLimiter } from './limits.js';
+import { createEventLimiter, createKeyedLimiter } from './limits.js';
 import { setIo } from './realtime.js';
 import { joinRoom, leaveRoom } from './roomhandler.js';
 import { clearPresence } from './presence.js';
 import { typingStarted, typingStopped } from './typingevents.js';
+import { docSubscribe, docUnsubscribe, docUpdate, cleanupSocketDocs } from './documentevents.js';
 import { userRoom } from './rooms.js';
 
-const MAX_MESSAGE_BYTES = 10 * 1024; // same as the REST body limit
+const MAX_MESSAGE_BYTES = 256 * 1024; // 256 KB: covers Yjs sync payloads for the Project Notes doc
+// (Phase 13) while keeping an upper bound. Regular text traffic stays well under this.
 const MAX_SOCKETS_PER_USER = 10;
 const EVENT_RATE = { limit: 60, windowMs: 10_000 };
 const MAX_TIMER_MS = 2 ** 31 - 1; // setTimeout cannot wait longer than this
+
+// (Phase 15) Per-IP cap on handshake attempts. A legitimate browser handshakes once per
+// token refresh (~15 min), so 30/min is generous even behind a busy NAT; it exists to stop
+// unauthenticated floods from reaching the JWT check and the user lookup in the DB.
+// Skipped in tests, like the REST limiters (the suites open many sockets from one IP).
+const HANDSHAKE_RATE = { limit: 30, windowMs: 60_000 };
 
 const failure = (code, message) => ({ ok: false, error: { code, message } });
 
@@ -24,6 +32,9 @@ export function initSocket(httpServer) {
   const io = new Server(httpServer, {
     cors: { origin: clientOrigin, credentials: true },
     maxHttpBufferSize: MAX_MESSAGE_BYTES,
+    // Same TRUST_PROXY switch as REST: when set, Socket.IO parses X-Forwarded-For so
+    // handshake.address (and therefore the per-IP guard below) sees the real client.
+    proxy: Boolean(env.TRUST_PROXY),
     // Browsers always send Origin on WebSocket handshakes. If it is present it must be ours,
     // otherwise another site could ride the user's cookie (cross-site WebSocket hijacking).
     allowRequest: (req, callback) => {
@@ -31,6 +42,17 @@ export function initSocket(httpServer) {
       callback(null, !origin || origin === clientOrigin);
     },
   });
+
+  if (env.NODE_ENV !== 'test') {
+    const handshakeAllowed = createKeyedLimiter(HANDSHAKE_RATE);
+    setInterval(() => handshakeAllowed.sweep(), HANDSHAKE_RATE.windowMs).unref();
+    io.use((socket, next) => {
+      if (handshakeAllowed(socket.handshake.address) === 'limited') {
+        return next(handshakeError('RATE_LIMITED', 'Too many connection attempts. Slow down.'));
+      }
+      return next();
+    });
+  }
 
   io.use(authenticateSocket);
   io.use((socket, next) => {
@@ -100,10 +122,14 @@ export function initSocket(httpServer) {
     handle('room.leave', leaveRoom);
     handle('typing.started', typingStarted);
     handle('typing.stopped', typingStopped);
+    handle('doc.subscribe', docSubscribe);
+    handle('doc.unsubscribe', docUnsubscribe);
+    handle('doc.update', docUpdate);
 
     socket.on('disconnect', (reason) => {
       clearTimeout(expiryTimer);
       clearPresence(socket);
+      cleanupSocketDocs(socket);
       const remaining = (openSockets.get(userId) ?? 1) - 1;
       if (remaining <= 0) openSockets.delete(userId);
       else openSockets.set(userId, remaining);

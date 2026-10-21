@@ -1,6 +1,6 @@
 import { describe, test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createEventLimiter } from '../src/sockets/limits.js';
+import { createEventLimiter, createKeyedLimiter } from '../src/sockets/limits.js';
 
 describe('createEventLimiter', () => {
   test('allows up to the limit, then limits, then flags abuse', () => {
@@ -26,5 +26,34 @@ describe('createEventLimiter', () => {
     assert.equal(a(), 'ok');
     assert.equal(a(), 'limited');
     assert.equal(b(), 'ok');
+  });
+});
+
+describe('createKeyedLimiter', () => {
+  test('each key gets its own window', () => {
+    const hit = createKeyedLimiter({ limit: 2, windowMs: 1000 });
+    assert.deepEqual([hit('a'), hit('a'), hit('a')], ['ok', 'ok', 'limited']);
+    assert.equal(hit('b'), 'ok', 'a different key starts fresh');
+  });
+
+  test('a new window resets the count for that key', () => {
+    let now = 0;
+    const hit = createKeyedLimiter({ limit: 1, windowMs: 1000, now: () => now });
+    assert.equal(hit('a'), 'ok');
+    assert.equal(hit('a'), 'limited');
+    now = 1000;
+    assert.equal(hit('a'), 'ok');
+  });
+
+  test('sweep drops expired windows but keeps live ones', () => {
+    let now = 0;
+    const hit = createKeyedLimiter({ limit: 1, windowMs: 1000, now: () => now });
+    hit('a');
+    now = 500;
+    hit('b');
+    now = 1100; // a's window has expired, b's is still live
+    hit.sweep();
+    assert.equal(hit('a'), 'ok', 'expired key was swept and starts fresh');
+    assert.equal(hit('b'), 'limited', 'live key kept its count');
   });
 });

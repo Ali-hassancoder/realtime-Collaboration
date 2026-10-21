@@ -381,7 +381,9 @@ describe('sockets', { skip: skipReason }, () => {
   test('oversized messages close the connection', async () => {
     const socket = await connected(owner.cookie);
     const gone = waitFor(socket, 'disconnect', 5000);
-    socket.emit('room.join', { type: 'workspace', workspaceId: 'a'.repeat(50_000) });
+    // The socket buffer cap is 256 KB (raised in Phase 13 to accommodate Yjs sync payloads for
+    // the Project Notes doc); this payload is deliberately above it.
+    socket.emit('room.join', { type: 'workspace', workspaceId: 'a'.repeat(300_000) });
     await gone;
     assert.equal(socket.connected, false);
   });

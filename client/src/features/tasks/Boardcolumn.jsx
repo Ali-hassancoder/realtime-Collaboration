@@ -6,7 +6,7 @@ export default function BoardColumn({ status, column, names, canMove, pendingIds
   const headingId = `column-${status.key}`;
 
   return (
-    <section aria-labelledby={headingId} className={`flex min-w-64 flex-1 flex-col rounded-2xl p-2 ring-1 ${status.columnClass}`}>
+    <section aria-labelledby={headingId} className={`flex min-w-56 flex-1 flex-col rounded-2xl p-2 ring-1 sm:min-w-64 ${status.columnClass}`}>
       <h3 id={headingId} className="mb-2 flex items-center justify-between px-1 text-sm font-semibold text-slate-700">
         <span className="flex items-center gap-2">
           <span className={`h-2.5 w-2.5 rounded-full ${status.dot}`} aria-hidden="true" />

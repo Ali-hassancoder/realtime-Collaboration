@@ -13,6 +13,7 @@ import { Comment } from '../comment/comment.model.js';
 import { Message } from '../message/message.model.js';
 import { Activity } from '../activity/activity.model.js';
 import { Notification } from '../notification/notification.model.js';
+import { Document } from '../documents/document.model.js';
 import { unassignUser } from '../task/task.cleanup.js';
 import { beginWorkspaceClose, syncUserAccess } from '../../sockets/realtime.js';
 import { can, outranks, permissionsFor } from './workspace.permissions.js';
@@ -75,6 +76,7 @@ export async function deleteWorkspace(membership) {
     Message.deleteMany({ workspaceId }),
     Activity.deleteMany({ workspaceId }),
     Notification.deleteMany({ workspaceId }),
+    Document.deleteMany({ workspaceId }),
   ]);
 
   finishClose();

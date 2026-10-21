@@ -18,3 +18,13 @@ export const loginSchema = z.object({
   email,
   password: z.string().min(1, 'Password is required').max(72),
 });
+
+// Email link tokens: 32 random bytes as base64url (43 chars). The shape is checked before
+// the DB lookup so random junk never becomes a query.
+const linkToken = z.string().regex(/^[A-Za-z0-9_-]{40,64}$/, 'Invalid token');
+
+export const verifyEmailSchema = z.object({ token: linkToken });
+
+export const forgotPasswordSchema = z.object({ email });
+
+export const resetPasswordSchema = z.object({ token: linkToken, password });

@@ -47,6 +47,11 @@ const ACTIONS = Object.freeze({
   'message:edit_own': EVERYONE,
   'message:delete_own': EVERYONE,
   'message:delete_any': ADMINS,
+
+  // Phase 13 - collaborative Project Notes. Guests can read but not write, matching how
+  // comment/message read vs. write is split; only actual team members may edit the shared doc.
+  'document:read': EVERYONE,
+  'document:edit': MEMBERS,
 });
 
 export const ACTION_NAMES = Object.keys(ACTIONS);
